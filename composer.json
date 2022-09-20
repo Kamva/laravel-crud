@@ -1,0 +1,29 @@
+{
+    "name": "kamva/laravel-crud",
+    "description": "CRUD manager system",
+    "keywords": ["laravel", "kamva", "crud", "crud manager"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Mehdi Meshkatian",
+            "email": "mmeshkatian@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "laravel/framework": ">=6.0",
+        "maatwebsite/excel": "^3.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kamva\\Crud\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Kamva\\Crud\\KamvaCRUDServiceProvider"
+            ]
+        }
+    }
+}
