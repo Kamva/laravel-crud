@@ -32,6 +32,7 @@ class CRUDController extends Controller
     private $filters        = [];
     private $actions        = [];
     private $preferences    = [];
+    private $routeParameters = [];
     private $model;
     private $query;
     private $form;
@@ -44,6 +45,11 @@ class CRUDController extends Controller
             $this->init();
             return $next($request);
         });
+    }
+
+    public function setRouteParameters($parameters)
+    {
+        $this->routeParameters = $parameters;
     }
 
     public function setSingleType($singleType = true)
@@ -80,7 +86,7 @@ class CRUDController extends Controller
         $createRoute    = null;
 
         if(!empty($this->getMethodRoute('create'))){
-            $createRoute    = route($this->getMethodRoute('create')->getName());
+            $createRoute    = route($this->getMethodRoute('create')->getName(), $this->routeParameters);
         }
 
         return $createRoute;
@@ -349,7 +355,7 @@ class CRUDController extends Controller
         /** @var Builder $rows */
         $rows           = $this->getModel();
         $createRoute    = $this->tryToGetCreateRoute();
-        $storeRoute     = (!empty($this->getMethodRoute('store')) && !empty($this->getMethodRoute('store')->getName())) ? route($this->getMethodRoute('store')->getName()) : null;
+        $storeRoute     = (!empty($this->getMethodRoute('store')) && !empty($this->getMethodRoute('store')->getName())) ? route($this->getMethodRoute('store')->getName(), $this->routeParameters) : null;
         $importProfiles = collect($this->importProfiles)->map(function ($item, $i) {
             return [
                 'id'    => $item->getId(),
@@ -598,7 +604,7 @@ class CRUDController extends Controller
             abort(400);
         }
 
-        $action     = route($route->getName(), $data->id ?? null);
+        $action     = route($route->getName(), $data ? array_merge($this->routeParameters, [$data->id ]) : $this->routeParameters);
         $method     = $route->methods()[0];
         $title      = $this->title . ' ' . ($data ? ($readOnly ? '::  نمایش رکورد' : '::  ویرایش رکورد') : '::  ثبت رکورد جدید');
         $form       = $this->form;
