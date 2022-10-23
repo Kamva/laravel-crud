@@ -101,7 +101,7 @@ abstract class BaseField implements FieldContract
             return $data->{$this->getName()};
         }
 
-        return null;
+        return request()->get($this->getName());
     }
 
     public function value($data, $raw = false) : ?string
