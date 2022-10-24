@@ -185,19 +185,29 @@ class CRUDController extends Controller
     public function getActionFieldForRow($row)
     {
         $colValue   = '';
-        $actions = array_reverse($this->actions);
+        $actions = collect($this->actions)->filter(fn($action) => $action->hasAccess($row));
 
-        foreach ($actions as $action) {
-            if(!$action->hasAccess($row)){
-                continue;
-            }
-
-            $colValue .= '<form data-toggle="tooltip" data-placement="top"  class="action-selector '. $action->getOption('class') . ($action->getOption('ask') ? 'ask' : '') .'" title="'. $action->getCaption() .'" style="margin-left: 10px;display: inline" method="'. ($action->isMethod('get') ? 'get' : 'post') .'" action="'.$action->url($row).'">';
+        $actions->take(3)->reverse()->each(function ($action) use($row, &$colValue){
+            $colValue .= '<form data-toggle="tooltip" data-placement="top"  class="action-selector '. $action->getOption('class') . ($action->getOption('ask') ? 'ask' : '') .'" title="'. $action->getCaption() .'" style="margin: 0 5px;display: inline" method="'. ($action->isMethod('get') ? 'get' : 'post') .'" action="'.$action->url($row).'">';
             $colValue .= $action->isMethod('get') ? '' : method_field($action->getMethod());
             $colValue .= $action->isMethod('get') ? '' : csrf_field();
             $colValue .= $action->getRender($row);
             $colValue .= '</form>';
-        }
+        });
+
+        $colValue .= '<div class="btn-group"><a data-toggle="dropdown"><i class="feather icon-more-vertical"></i></a><ul class="dropdown-menu" role="menu">';
+
+        $actions->skip(3)->each(function ($action) use($row, &$colValue){
+            $colValue .= '<li >';
+            $colValue .= '<form class="dropdown-item action-selector '. $action->getOption('class') . ($action->getOption('ask') ? 'ask' : '') .'" method="'. ($action->isMethod('get') ? 'get' : 'post') .'" action="'.$action->url($row).'">';
+            $colValue .= $action->isMethod('get') ? '' : method_field($action->getMethod());
+            $colValue .= $action->isMethod('get') ? '' : csrf_field();
+            $colValue .= $action->getRender($row) .'<span style="margin-right: 1rem">'.$action->getCaption().'</span>';
+            $colValue .= '</form>';
+            $colValue .='</li>';
+        });
+
+        $colValue .= '</ul></div>';
 
         return $colValue;
     }
