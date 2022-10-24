@@ -195,9 +195,14 @@ class CRUDController extends Controller
             $colValue .= '</form>';
         });
 
+        $extraActions = $actions->skip(3);
+        if($extraActions->isEmpty()){
+            return $colValue;
+        }
+        
         $colValue .= '<div class="btn-group"><a data-toggle="dropdown"><i class="feather icon-more-vertical"></i></a><ul class="dropdown-menu" role="menu">';
 
-        $actions->skip(3)->each(function ($action) use($row, &$colValue){
+        $extraActions->each(function ($action) use($row, &$colValue){
             $colValue .= '<li >';
             $colValue .= '<form class="dropdown-item action-selector '. $action->getOption('class') . ($action->getOption('ask') ? 'ask' : '') .'" method="'. ($action->isMethod('get') ? 'get' : 'post') .'" action="'.$action->url($row).'">';
             $colValue .= $action->isMethod('get') ? '' : method_field($action->getMethod());
