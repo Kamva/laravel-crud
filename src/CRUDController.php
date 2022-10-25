@@ -36,6 +36,8 @@ class CRUDController extends Controller
     private $model;
     private $query;
     private $form;
+    private $rowCounter     = TRUE;
+    private $createButton   = TRUE;
 
     public function __construct(Form $form)
     {
@@ -225,7 +227,7 @@ class CRUDController extends Controller
         foreach ($rows as $row) {
             $value      = [];
 
-            $value[]    = $i++;
+            $this->rowCounter ? $value[] = $i++ : '';
 
             foreach ($this->cols as $col) {
                 $value[] = $col->getValue($row);
@@ -400,7 +402,9 @@ class CRUDController extends Controller
             }
 
             $filters = $this->filters;
-            return view('kamva-crud::list',compact('title','cols','createRoute', 'importProfiles', 'storeRoute', 'filters'));
+            $rowCounter   = $this->rowCounter;
+            $createButton = $this->createButton;
+            return view('kamva-crud::list',compact('title','cols','createRoute', 'importProfiles', 'storeRoute', 'filters','rowCounter','createButton'));
         }
     }
 
@@ -766,5 +770,15 @@ class CRUDController extends Controller
         }
 
         KamvaCrud::set('class', $this);
+    }
+
+    public function disableRowCounter()
+    {
+        $this->rowCounter = false;
+    }
+
+    public function hideCreateButton()
+    {
+        $this->createButton = false;
     }
 }
