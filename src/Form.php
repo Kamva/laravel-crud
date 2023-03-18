@@ -108,7 +108,7 @@ class Form
                 throw $e;
             }
 
-            if (!empty($context) || $field->isMultiple()) {
+            if (!is_null($context) || $field->isMultiple()) {
                 $model->{$field->getName()} = $context;
             }
         }
