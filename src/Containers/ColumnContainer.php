@@ -58,7 +58,7 @@ class ColumnContainer
 
             if (method_exists($data, $value[0])) {
                 foreach ($value ?? [] as $parameter) {
-                    $data = $data->$parameter;
+                    $data = $data?->$parameter;
                 }
 
                 return $data;
