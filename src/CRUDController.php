@@ -289,8 +289,8 @@ class CRUDController extends Controller
         $rows           = $rows->get();
         return [
             "data"              => $this->getJsonLoaderRecords($start, $rows),
-            "recordsTotal"      => count($initialRows),
-            "recordsFiltered"   => count($filteredRows),
+            "recordsTotal"      => count($initialRows->get()),
+            "recordsFiltered"   => count($filteredRows->get()),
             "draw"              => $request->input('draw'),
         ];
     }
