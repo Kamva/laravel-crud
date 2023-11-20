@@ -60,6 +60,12 @@ class CRUDController extends Controller
         $this->setPreference('fields_as_api_entities', true);
     }
 
+    public function setOrderBy($col, $order = 'desc')
+    {
+        $this->setPreference('orderByCol', $col);
+        $this->setPreference('orderByOrder', $order);
+    }
+
     public function getMethodRoute($name)
     {
         return Route::getRoutes()->getByAction(get_class($this) . '@' . $name);
@@ -252,6 +258,12 @@ class CRUDController extends Controller
 
     private function orderRowsInJsonLoader($rows, $by, $dir)
     {
+        if(!empty($this->getPreference('orderByCol'))){
+            $rows->orderBy($this->getPreference('orderByCol'), $this->getPreference('orderByOrder'));
+
+            return $rows;
+        }
+        
         if (empty($by) || count($this->cols) < $by) {
             return $rows->orderBy("created_at", "desc");
         }
