@@ -232,7 +232,7 @@ class CRUDController extends Controller
                 $value[] = $col->getValue($row);
             }
 
-            $value[]    = $this->getActionFieldForRow($row);
+            $value[]    = $this->getActionFieldForRow($row, $rows->count() < 5);
             $out[]      = $value;
         }
 
