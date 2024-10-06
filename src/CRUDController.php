@@ -182,12 +182,13 @@ class CRUDController extends Controller
         return Excel::download(new CRUDExport($data), "export" . "_" . $this->title .'_' . jdate()->format("Y_m_d"). '.xlsx');
     }
 
-    public function getActionFieldForRow($row)
+    public function getActionFieldForRow($row, $avoidGroup = false)
     {
         $colValue   = '';
         $actions = collect($this->actions)->filter(fn ($action) => $action->hasAccess($row));
 
-        $actions->take(3)->each(function ($action) use ($row, &$colValue) {
+        $firstActions = $avoidGroup ? $actions : $actions->take(3);
+        $firstActions->each(function ($action) use ($row, &$colValue) {
             $colValue .= '<form data-toggle="tooltip" data-placement="top"  class="action-selector '. $action->getOption('class') . ($action->getOption('ask') ? 'ask' : '') .'" title="'. $action->getCaption() .'" style="margin: 0 5px;display: inline-block" method="'. ($action->isMethod('get') ? 'get' : 'post') .'" action="'.$action->url($row).'">';
             $colValue .= $action->isMethod('get') ? '' : method_field($action->getMethod());
             $colValue .= $action->isMethod('get') ? '' : csrf_field();
@@ -195,7 +196,7 @@ class CRUDController extends Controller
             $colValue .= '</form>';
         });
 
-        $extraActions = $actions->skip(3);
+        $extraActions = $avoidGroup ? collect([]) : $actions->skip(3);
         if ($extraActions->isEmpty()) {
             return $colValue;
         }
@@ -263,7 +264,7 @@ class CRUDController extends Controller
 
             return $rows;
         }
-        
+
         if (empty($by) || count($this->cols) < $by) {
             return $rows->orderBy("created_at", "desc");
         }
