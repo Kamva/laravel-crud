@@ -381,16 +381,18 @@ class CRUDController extends Controller
 
         $this->applyFilters($request, $rows);
 
-         if (empty($rows->getQuery()->orders)) {
-                $rows->orderBy("created_at", "desc");
-            }
             
         if ($request->has('export')) {
+            $rows->orderBy("created_at", "asc");
             return $this->exportData($rows);
         }
 
         if (KamvaCrud::isApi()) {
         
+            if (empty($rows->getQuery()->orders)) {
+                $rows->orderBy("created_at", "desc");
+            }
+
             return $this->handleApiResponse($rows);
         } else {
             if ($request->wantsJson()) {
