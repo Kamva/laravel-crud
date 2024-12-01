@@ -1,4 +1,4 @@
-ذ<?php
+<?php
 
 namespace Kamva\Crud;
 
