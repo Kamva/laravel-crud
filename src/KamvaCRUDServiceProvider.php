@@ -15,7 +15,10 @@ class KamvaCRUDServiceProvider extends ServiceProvider
 
     public function boot()
     {
-        include __DIR__ . "/helpers.php";
+        // Only include the helpers.php file if the makeField function doesn't exist
+        if (!function_exists('makeField')) {
+            include __DIR__ . "/helpers.php";
+        }
 
         $this->loadRoutesFrom(__DIR__ . '/routes.php');
         $this->loadViewsFrom(__DIR__ . '/views', 'kamva-crud');
