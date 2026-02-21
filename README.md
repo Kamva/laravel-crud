@@ -6,6 +6,268 @@ for both web views and JSON APIs.
 
 ---
 
+## How it works
+
+This package is a **scaffolding layer**, not a ready-made admin panel. It handles
+the repetitive wiring (routing, validation, saving, paginating, exporting) so
+you only write what is unique to each resource.
+
+Here is the full lifecycle from install to a working page:
+
+```
+1. composer require kamva/laravel-crud
+         ↓
+2. php artisan vendor:publish   ← copies blank view stubs to your app
+         ↓
+3. You create your field types  ← e.g. TextType, SelectType (see below)
+         ↓
+4. You extend CRUDController    ← define columns, fields, actions in setup()
+         ↓
+5. You register Route::resource ← standard Laravel resource routes
+         ↓
+6. You implement the Blade views ← fill in the published stubs with your HTML
+         ↓
+7. Done — list / create / edit / delete all work
+```
+
+**What the package gives you:**
+- `CRUDController` — base class with `index`, `create`, `store`, `edit`,
+  `update`, `destroy` already implemented
+- `BaseField` / `FieldContract` — base classes for your field types
+- Excel import & export
+- Field observer (AJAX-driven dependent fields)
+- API JSON mode (when route path starts with `api`)
+
+**What you must build yourself** (detailed in the next section):
+- Field type classes (e.g. `TextType`, `SelectType`)
+- Blade views (published stubs, you fill in the HTML)
+- `jdate()` global helper (required for export filenames)
+
+---
+
+## What you need to provide
+
+### 1. Field types
+
+The package ships the field *framework* (`BaseField`, `FieldContract`) but
+**no concrete field types**. You create these in your application.
+
+Every field type needs two things:
+- `render($data)` — returns the HTML for the form input
+- `store($value, $oldValue)` — transforms the incoming request value before it
+  is saved to the model
+
+**Minimal `TextType` example:**
+
+```php
+<?php
+// app/Crud/Fields/TextType.php
+
+namespace App\Crud\Fields;
+
+use Kamva\Crud\Fields\Internal\BaseField;
+use Illuminate\Contracts\Support\Renderable;
+
+class TextType extends BaseField
+{
+    /**
+     * Render the form input.
+     * $data is the Eloquent model on edit, null on create.
+     */
+    public function render($data = null): Renderable
+    {
+        $value = $this->value($data);   // handles old() fallback automatically
+
+        return view('crud.fields.text', [
+            'field' => $this,
+            'value' => $value,
+        ]);
+    }
+
+    /**
+     * Transform the incoming value before it is assigned to the model.
+     * Return it unchanged for a plain text field.
+     */
+    public function store($value, $oldValue)
+    {
+        return $value;
+    }
+}
+```
+
+A minimal Blade template for this field (`resources/views/crud/fields/text.blade.php`):
+
+```blade
+<div class="form-group">
+    <label>{{ $field->caption }}</label>
+    <input
+        type="text"
+        name="{{ $field->name }}"
+        value="{{ old($field->name, $value) }}"
+        class="form-control"
+    >
+</div>
+```
+
+**`SelectType` example** (with dynamic options from the database):
+
+```php
+<?php
+// app/Crud/Fields/SelectType.php
+
+namespace App\Crud\Fields;
+
+use Kamva\Crud\Fields\Internal\BaseField;
+use Illuminate\Contracts\Support\Renderable;
+
+class SelectType extends BaseField
+{
+    public function render($data = null): Renderable
+    {
+        return view('crud.fields.select', [
+            'field'   => $this,
+            'value'   => $this->value($data),
+            'options' => $this->getOptions($data),  // resolves setSource() or setOptions()
+        ]);
+    }
+
+    public function store($value, $oldValue)
+    {
+        return $value;
+    }
+}
+```
+
+```blade
+{{-- resources/views/crud/fields/select.blade.php --}}
+<div class="form-group">
+    <label>{{ $field->caption }}</label>
+    <select name="{{ $field->name }}" class="form-control">
+        <option value="">-- choose --</option>
+        @foreach ($options as $key => $label)
+            <option value="{{ $key }}" {{ old($field->name, $value) == $key ? 'selected' : '' }}>
+                {{ $label }}
+            </option>
+        @endforeach
+    </select>
+</div>
+```
+
+---
+
+### 2. Blade views (the published stubs)
+
+After `vendor:publish`, you get four stub files under
+`resources/views/vendor/kamva-crud/`. Three of the four contain only
+`{{-- Implement Me ! --}}`. You must fill them in.
+
+**`list.blade.php`** — the record table
+
+Variables injected: `$title`, `$cols`, `$createRoute`, `$storeRoute`,
+`$importProfiles`, `$filters`.
+
+```blade
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <h1>{{ $title }}</h1>
+
+    @if ($createRoute)
+        <a href="{{ $createRoute }}" class="btn btn-primary mb-3">New record</a>
+    @endif
+
+    <table class="table">
+        <thead>
+            <tr>
+                @foreach ($cols as $col)
+                    <th>{{ $col->title }}</th>
+                @endforeach
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach ($rows as $row)
+                <tr>
+                    @foreach ($cols as $col)
+                        <td>{!! $col->getValue($row) !!}</td>
+                    @endforeach
+                    <td>
+                        @foreach ($actions as $action)
+                            {!! $action->render($row) !!}
+                        @endforeach
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+
+    {{ $rows->links() }}
+</div>
+@endsection
+```
+
+**`create.blade.php`** — the create / edit / show form
+
+Variables injected: `$title`, `$form`, `$data` (model on edit, `null` on create).
+
+```blade
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <h1>{{ $title }}</h1>
+
+    <form method="POST" action="{{ $data ? route('products.update', $data) : route('products.store') }}">
+        @csrf
+        @if ($data)
+            @method('PUT')
+        @endif
+
+        {!! $form->render() !!}
+
+        <button type="submit" class="btn btn-success mt-3">Save</button>
+    </form>
+</div>
+@endsection
+
+@push('scripts')
+    {!! $form->scripts() !!}   {{-- required for field observers --}}
+@endpush
+```
+
+---
+
+### 3. `jdate()` helper
+
+The export filename contains a Jalali (Persian) date via a `jdate()` global
+helper. **If your application does not already provide this**, add a simple
+stub so exports don't throw a fatal error:
+
+```php
+// app/helpers.php  (autoloaded via composer.json "autoload.files")
+
+if (! function_exists('jdate')) {
+    function jdate(string $format, $timestamp = null): string
+    {
+        // Simplest stub — just returns a Gregorian date
+        return date($format, $timestamp ?? time());
+    }
+}
+```
+
+Register it in `composer.json`:
+
+```json
+"autoload": {
+    "files": ["app/helpers.php"]
+}
+```
+
+Then run `composer dump-autoload`.
+
+---
+
 ## Requirements
 
 | Requirement | Version |
