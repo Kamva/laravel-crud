@@ -27,7 +27,7 @@ class CRUDImport implements ToCollection, WithChunkReading, WithStartRow
     {
         foreach ($collection as $item) {
             if (count($this->container->getFields()) > 0) {
-                $model = $this->model;
+                $model = $this->model->newInstance();
                 foreach ($this->container->getFields() as $i => $field) {
                     $model->{$field->getName()} = $field->getValue($item[$i] ?? null, true);
                 }

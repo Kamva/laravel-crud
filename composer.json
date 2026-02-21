@@ -10,14 +10,17 @@
         }
     ],
     "require": {
-        "php": ">=7.4",
-        "laravel/framework": ">=6.0",
+        "php": ">=8.0",
+        "laravel/framework": ">=9.0",
         "maatwebsite/excel": "^3.1"
     },
     "autoload": {
         "psr-4": {
             "Kamva\\Crud\\": "src/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "extra": {
         "laravel": {
