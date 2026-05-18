@@ -13,7 +13,7 @@ class KamvaCRUDServiceProvider extends ServiceProvider
         });
     }
 
-    public function boot()
+     public function boot()
     {
         // Only include the helpers.php file if the makeField function doesn't exist
         if (!function_exists('makeField')) {
