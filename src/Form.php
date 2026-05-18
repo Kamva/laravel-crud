@@ -91,8 +91,11 @@ class Form
     {
         KamvaCrud::set('model', $model);
 
+        // Skip fields marked as skip() (those run as side-effects after save)
+        // AND fields marked as readOnly() (never accept writes from request).
         $fields = collect($this->fields)->filter(function ($field) {
-            return !$field->field()->shouldSkipSaving();
+            return ! $field->field()->shouldSkipSaving()
+                && ! $field->field()->isReadOnly();
         })->toArray();
 
         $inputs = $request->all();

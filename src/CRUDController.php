@@ -29,6 +29,7 @@ class CRUDController extends Controller
     private $importProfiles = [];
     private $filters        = [];
     private $actions        = [];
+    private $topActions     = [];
     private $preferences    = [];
     private $routeParameters = [];
     private $model;
@@ -399,8 +400,9 @@ class CRUDController extends Controller
                 return $this->handleJsonLoaderResponse($request, $rows);
             }
 
-            $filters = $this->filters;
-            return view('kamva-crud::list', compact('title', 'cols', 'createRoute', 'importProfiles', 'storeRoute', 'filters'));
+            $filters    = collect($this->filters)->filter(fn ($f) => $f->hasField())->values()->all();
+            $topActions = $this->getTopActions();
+            return view('kamva-crud::list', compact('title', 'cols', 'createRoute', 'importProfiles', 'storeRoute', 'filters', 'topActions'));
         }
     }
 
@@ -677,6 +679,60 @@ class CRUDController extends Controller
         return end($this->filters);
     }
 
+    /**
+     * Register a filter that has no UI form field. The callback is applied
+     * to the query whenever the named input is present in the request
+     * (typically via query string), but no filter widget is rendered in the
+     * filter form. Useful for "deep link" filters (e.g. dashboard widgets
+     * linking to `?overdue=1`) and for scoping that's controlled by something
+     * other than the user-visible filter form (e.g. a "show only mine" toggle
+     * rendered elsewhere in the UI).
+     *
+     * @return FilterContainer
+     */
+    public function addHiddenFilter(string $input, \Closure $callback)
+    {
+        return $this->addFilter($input, $callback);
+    }
+
+    /**
+     * Register a multi-column LIKE search filter. The callback used by
+     * {@see addFilter()} is generated for you: it lowercases the input and
+     * OR-joins case-insensitive `LIKE %term%` against each column. `%` and
+     * `_` are escaped so user input can't act as wildcards.
+     *
+     * Use this for the typical "search by name OR email OR phone" pattern
+     * rather than rolling raw whereRaw clauses each time.
+     *
+     * @param array  $columns Column names to search.
+     * @param string $input   Request input name (default: 'q').
+     * @param FieldContract|null $field Optional field for rendering a search
+     *        box. Pass null for hidden behavior (still filters when ?q=… is
+     *        present).
+     * @return FilterContainer
+     */
+    public function addSearchField(array $columns, string $input = 'q', ?FieldContract $field = null)
+    {
+        $callback = function ($request, $rows) use ($columns, $input) {
+            $term = (string) $request->get($input);
+            if ($term === '') return;
+
+            $escaped = addcslashes(mb_strtolower($term), '%_\\');
+            $like    = '%' . $escaped . '%';
+
+            $rows->where(function ($q) use ($columns, $like) {
+                foreach ($columns as $col) {
+                    // LOWER(col) is broadly portable; database collation
+                    // determines whether the underlying LIKE itself is
+                    // case-sensitive.
+                    $q->orWhereRaw("LOWER({$col}) LIKE ?", [$like]);
+                }
+            });
+        };
+
+        return $this->addFilter($input, $callback, $field);
+    }
+
     public function addFieldFilter($input, \Closure $callback, $fieldName)
     {
         $field = collect($this->form->getFields())->first(function ($field) use ($fieldName) {
@@ -713,6 +769,72 @@ class CRUDController extends Controller
         $this->actions[] = $type;
 
         return end($this->actions);
+    }
+
+    /**
+     * Register a page-level action — a button that appears in the page
+     * header rather than per row. Use for things like "Switch to Kanban
+     * view", "Export all", "Create" (when you want a non-default location),
+     * or links to related screens.
+     *
+     * Unlike {@see addAction()} (which is row-scoped and is rendered next to
+     * each table row), top actions are global and rendered once at the top
+     * of the list/index page.
+     *
+     * Views consume these via {@see getTopActions()}; the list view must
+     * loop over that array and render each button — the package's stock
+     * `views/list.blade.php` is a stub, so app-published views are expected
+     * to opt in.
+     *
+     * Each top action is returned as an associative array:
+     *
+     *     ['caption' => 'Switch to Kanban', 'route' => 'crud.lead.index',
+     *      'params' => ['view' => 'kanban'], 'icon' => 'feather icon-columns',
+     *      'class' => 'btn-sm btn-secondary']
+     *
+     * @param string $caption  Button label.
+     * @param string $route    Named route to link to.
+     * @param array  $options  {
+     *     @var array  $params  Route params (default: []).
+     *     @var string $icon    Icon class (default: '').
+     *     @var string $class   CSS class for the <a> (default: 'btn-sm btn-secondary').
+     *     @var \Closure|null $accessControlMethod Optional gate; receives no
+     *          args and must return bool. False hides the action.
+     * }
+     * @return array The stored action entry.
+     */
+    public function addTopAction(string $caption, string $route, array $options = []): array
+    {
+        $entry = [
+            'caption' => $caption,
+            'route'   => $route,
+            'params'  => $options['params']  ?? [],
+            'icon'    => $options['icon']    ?? '',
+            'class'   => $options['class']   ?? 'btn-sm btn-secondary',
+            'accessControlMethod' => $options['accessControlMethod'] ?? null,
+        ];
+        $this->topActions[] = $entry;
+        return $entry;
+    }
+
+    /**
+     * Get the registered top actions, filtered through their access control
+     * methods. Views call this to render the page-header button bar.
+     *
+     * @return array<int, array{caption:string, route:string, params:array, icon:string, class:string, url:string}>
+     */
+    public function getTopActions(): array
+    {
+        $out = [];
+        foreach ($this->topActions as $a) {
+            if ($a['accessControlMethod'] instanceof \Closure && ! ($a['accessControlMethod'])()) {
+                continue;
+            }
+            $a['url'] = route($a['route'], $a['params']);
+            unset($a['accessControlMethod']);
+            $out[] = $a;
+        }
+        return $out;
     }
 
     /**

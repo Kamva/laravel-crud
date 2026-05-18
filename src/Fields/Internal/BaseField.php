@@ -286,4 +286,62 @@ abstract class BaseField implements FieldContract
     {
         return $this->getConfig('skip') === true;
     }
+
+    /**
+     * Mark this field as render-only — its value is shown in forms but never
+     * read back from request input on store/update. Useful when the
+     * underlying attribute is managed by a domain service (e.g. status
+     * fields that must go through a state machine) and you still want users
+     * to see the current value in the form.
+     *
+     * Different from {@see skip()} which is for fields that need
+     * after-save side effects (file uploads etc.); read-only fields run no
+     * callback at all.
+     *
+     * @return $this
+     */
+    public function readOnly(): FieldContract
+    {
+        $this->setConfig('readOnly', true);
+        return $this;
+    }
+
+    public function isReadOnly(): bool
+    {
+        return $this->getConfig('readOnly') === true;
+    }
+
+    /**
+     * Register a predicate that decides whether the field should be rendered
+     * for a given model instance. The closure receives the bound model (or
+     * null on the create form) and must return bool.
+     *
+     * Use this to hide fields whose meaning depends on another field's value
+     * — e.g. a "lost_reason" select that only makes sense when stage = lost:
+     *
+     *     ->showWhen(fn ($model) => $model && $model->stage === Stage::Lost)
+     *
+     * Has no effect on saving — combine with {@see readOnly()} if you also
+     * want to reject writes when the field is hidden.
+     *
+     * @return $this
+     */
+    public function showWhen(\Closure $predicate): FieldContract
+    {
+        $this->setConfig('showWhen', $predicate);
+        return $this;
+    }
+
+    /**
+     * Evaluate the {@see showWhen()} predicate (if any) against the given
+     * model. Returns true when no predicate is registered.
+     */
+    public function shouldShow($model = null): bool
+    {
+        $predicate = $this->getConfig('showWhen');
+        if (! $predicate instanceof \Closure) {
+            return true;
+        }
+        return (bool) $predicate($model);
+    }
 }
