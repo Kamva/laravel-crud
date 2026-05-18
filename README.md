@@ -775,6 +775,45 @@ src/
 
 ---
 
+## v2 features (this branch)
+
+The following APIs are additive on top of the original scaffolding —
+existing controllers continue working unchanged. Each has a dedicated
+doc with the full API + examples.
+
+| Feature              | Doc                                              | Summary |
+|----------------------|--------------------------------------------------|---------|
+| Detail view          | [docs/detail-view.md](docs/detail-view.md)       | Opt-in `show()` page with sections, sidebar panels, and merged timeline (`addDetailSection`, `addDetailSidebar`, `setShowView`). |
+| Timeline             | [docs/timeline.md](docs/timeline.md)             | Merge audit/transition/note sources into one chronological feed (`addTimelineSource`). |
+| Kanban view          | [docs/kanban.md](docs/kanban.md)                 | Drop-in kanban variant gated on `?view=kanban` (`enableKanban` + `KanbanConfig`). |
+| Stats                | [docs/stats.md](docs/stats.md)                   | Summary numbers in the list/kanban header (`addStat`). |
+| Hidden filters       | [docs/filters.md](docs/filters.md)               | `addHiddenFilter` (no UI), `addSearchField` (multi-column LIKE). |
+| Top actions          | [docs/actions.md](docs/actions.md)               | Page-header buttons (`addTopAction`). |
+| Field flags          | [docs/fields.md](docs/fields.md)                 | `readOnly()` (no writes) and `showWhen()` (conditional visibility). |
+| Column renderers     | [docs/columns.md](docs/columns.md)               | `Renderers::badge / link / boolean / truncate / date` helpers. |
+
+Two soft-behaviour changes worth flagging:
+
+1. `FilterContainer::render()` now returns `''` instead of throwing when
+   no field is attached. `index()` pre-filters hidden filters out of
+   `$filters` before passing to the list view, so default behaviour is
+   unchanged.
+2. `show()` dispatches to the detail view IF the controller called
+   `addDetailSection` / `addDetailSidebar` / `addTimelineSource` /
+   `setShowView`. Controllers that don't touch these methods render the
+   read-only edit form as before.
+
+### Tests
+
+```bash
+composer test
+```
+
+61 unit tests covering the v2 additions and their non-breaking
+contracts. Run via orchestra/testbench against PHP 8.1+. See `tests/`.
+
+---
+
 ## License
 
 MIT — Copyright (c) 2022 kamva

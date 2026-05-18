@@ -82,6 +82,28 @@ class Form
         return $this->fields;
     }
 
+    /**
+     * Return only the fields that should be visible for a given model
+     * instance, evaluated via each field's {@see \Kamva\Crud\Fields\Internal\BaseField::showWhen()}
+     * predicate. When `$model` is null (create form), all fields are
+     * returned because predicates default to "visible" when given null
+     * unless the user explicitly tests for it.
+     *
+     * Apps that publish the create/edit form templates should iterate
+     * `$visibleFields` (passed to the view by the controller) instead of
+     * `$form->getFields()` so that fields hidden via `showWhen` actually
+     * disappear from the rendered HTML.
+     *
+     * @return array
+     */
+    public function getVisibleFields($model = null)
+    {
+        return collect($this->fields)
+            ->filter(fn ($container) => $container->field()->shouldShow($model))
+            ->values()
+            ->all();
+    }
+
     public function getMethod()
     {
         return $this->method;
@@ -91,8 +113,17 @@ class Form
     {
         KamvaCrud::set('model', $model);
 
-        $fields = collect($this->fields)->filter(function ($field) {
-            return !$field->field()->shouldSkipSaving();
+        // Skip fields that won't accept writes:
+        //   - skip()      : runs after save as a side-effect
+        //   - readOnly()  : never accepts writes from request
+        //   - showWhen() returning false for this model : hidden, so an
+        //     attacker can't bypass the view-layer guard by crafting a
+        //     request that includes the field's value
+        $fields = collect($this->fields)->filter(function ($field) use ($model) {
+            $f = $field->field();
+            return ! $f->shouldSkipSaving()
+                && ! $f->isReadOnly()
+                && $f->shouldShow($model);
         })->toArray();
 
         $inputs = $request->all();

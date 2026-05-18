@@ -14,6 +14,10 @@
         "laravel/framework": ">=6.0",
         "maatwebsite/excel": "^3.1"
     },
+    "require-dev": {
+        "orchestra/testbench": "^7.0|^8.0|^9.0",
+        "phpunit/phpunit": "^9.5|^10.0|^11.0"
+    },
     "autoload": {
         "psr-4": {
             "Kamva\\Crud\\": "src/"
@@ -22,11 +26,22 @@
             "src/helpers.php"
         ]
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Kamva\\Crud\\Tests\\": "tests/"
+        },
+        "classmap": [
+            "tests/Stubs"
+        ]
+    },
     "extra": {
         "laravel": {
             "providers": [
                 "Kamva\\Crud\\KamvaCRUDServiceProvider"
             ]
         }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit"
     }
 }
