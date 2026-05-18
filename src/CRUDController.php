@@ -413,6 +413,15 @@ class CRUDController extends Controller
             // the request AND the controller called enableKanban() in setup.
             if ($this->kanban !== null && $request->get('view') === 'kanban') {
                 $columns = $this->kanban->bucket($rows->get());
+
+                // Preserve parent route params (e.g. {organization} for nested
+                // resources) alongside the {__ID__} placeholder for the model
+                // key. array_merge keeps named string keys and re-indexes
+                // numeric ones, so the placeholder always appears AFTER the
+                // named parent params — which is how Laravel's route helper
+                // expects ordering for unnamed-positional fallback.
+                $transitionParams = array_merge($this->routeParameters, ['__ID__']);
+
                 return view('kamva-crud::kanban', [
                     'title'           => $title,
                     'createRoute'     => $createRoute,
@@ -421,7 +430,7 @@ class CRUDController extends Controller
                     'stats'           => $stats,
                     'columns'         => $columns,
                     'kanban'          => $this->kanban,
-                    'transitionUrl'   => route($this->kanban->transitionRoute, ['__ID__'] + $this->routeParameters),
+                    'transitionUrl'   => route($this->kanban->transitionRoute, $transitionParams),
                     'transitionParam' => $this->kanban->transitionParam,
                 ]);
             }
@@ -657,7 +666,12 @@ class CRUDController extends Controller
         $form->setRenderAsReadOnly($readOnly);
         $form->setFieldData($data);
 
-        return view('kamva-crud::create', compact('form', 'data', 'title'));
+        // Visibility-filtered field list so views can render only fields
+        // that pass their showWhen() predicate. Apps that don't care
+        // continue iterating $form->getFields() and get the full list.
+        $visibleFields = $form->getVisibleFields($data);
+
+        return view('kamva-crud::create', compact('form', 'data', 'title', 'visibleFields'));
     }
 
 

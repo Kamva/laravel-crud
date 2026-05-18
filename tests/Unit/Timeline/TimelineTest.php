@@ -62,6 +62,33 @@ class TimelineTest extends TestCase
         $this->assertSame('good', $events[0]->title);
     }
 
+    public function test_array_entry_with_bad_at_string_is_skipped_not_thrown(): void
+    {
+        // Codex P1: malformed `at` strings must not break the whole timeline.
+        // Without the try/catch in for(), `new DateTimeImmutable('not a date')`
+        // would throw and fail the entire detail-page request.
+        $t = new Timeline();
+        $t->addSource('mixed', fn () => [
+            ['at' => 'definitely not a date', 'title' => 'bad'],
+            ['at' => '2025-01-02', 'title' => 'good'],
+        ]);
+
+        $events = $t->for(null);
+        $this->assertCount(1, $events);
+        $this->assertSame('good', $events[0]->title);
+    }
+
+    public function test_throwing_producer_does_not_break_other_sources(): void
+    {
+        $t = new Timeline();
+        $t->addSource('exploding', fn () => throw new \RuntimeException('boom'));
+        $t->addSource('healthy',   fn () => [['at' => '2025-01-01', 'title' => 'fine']]);
+
+        $events = $t->for(null);
+        $this->assertCount(1, $events);
+        $this->assertSame('fine', $events[0]->title);
+    }
+
     public function test_remove_source_by_name(): void
     {
         $t = new Timeline();

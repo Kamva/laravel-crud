@@ -85,14 +85,27 @@ class Timeline
         $events = collect();
 
         foreach ($this->sources as $producer) {
-            $items = $producer($model) ?? [];
+            try {
+                $items = $producer($model) ?? [];
+            } catch (\Throwable) {
+                // A single source throwing must not break all timeline rendering —
+                // skip the source entirely.
+                continue;
+            }
             foreach ($items as $item) {
                 if ($item instanceof TimelineEvent) {
                     $events->push($item);
                 } elseif (is_array($item)) {
-                    $events->push(TimelineEvent::fromArray($item));
+                    try {
+                        $events->push(TimelineEvent::fromArray($item));
+                    } catch (\Throwable) {
+                        // Malformed entry (bad `at` string, etc.) — skip it,
+                        // honouring the documented "silently skip malformed
+                        // entries" contract.
+                        continue;
+                    }
                 }
-                // silently skip malformed entries
+                // Other shapes silently skipped
             }
         }
 
