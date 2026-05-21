@@ -12,7 +12,9 @@
 @extends('layouts.app')
 @section('title', $title)
 @section('content')
-<div class="container-fluid py-3">
+@include('kamva-crud::_dark_mode')
+@php $kcDark = \Kamva\Crud\KamvaCrud::getDarkMode(); @endphp
+<div class="kamva-crud-wrap container-fluid py-3"{{ $kcDark !== 'auto' ? ' data-kc-dark="'.e($kcDark).'"' : '' }}>
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0">{{ $title }}</h4>
         <div>

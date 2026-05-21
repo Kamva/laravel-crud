@@ -32,6 +32,22 @@ class Service
         $this->set('default_acl_method', $callable);
     }
 
+    /**
+     * Set the dark mode preference for package views.
+     * 'auto'  — follows the OS/browser prefers-color-scheme media query (default).
+     * 'dark'  — always dark, regardless of system setting.
+     * 'light' — always light, regardless of system setting.
+     */
+    public function setDarkMode(string $mode = 'auto'): void
+    {
+        $this->set('dark_mode', $mode);
+    }
+
+    public function getDarkMode(): string
+    {
+        return $this->get('dark_mode') ?? 'auto';
+    }
+
     public function callColumnType($name, ...$parameters)
     {
         $callback = $this->columnHelpers[$name] ?? null;

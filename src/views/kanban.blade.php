@@ -17,7 +17,9 @@
 @extends('layouts.app')
 @section('title', $title)
 @section('content')
-<div class="container-fluid py-3">
+@include('kamva-crud::_dark_mode')
+@php $kcDark = \Kamva\Crud\KamvaCrud::getDarkMode(); @endphp
+<div class="kamva-crud-wrap container-fluid py-3"{{ $kcDark !== 'auto' ? ' data-kc-dark="'.e($kcDark).'"' : '' }}>
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0">{{ $title }}</h4>
@@ -53,7 +55,7 @@
                 $color = $def['color'] ?? 'secondary';
                 $acceptsDrop = $def['accepts_drop'] ?? true;
             @endphp
-            <div class="kamva-kanban-col" style="flex:0 0 240px;max-width:240px;background:#f4f5f7;border-radius:6px;padding:8px;">
+            <div class="kamva-kanban-col" style="flex:0 0 240px;max-width:240px;border-radius:6px;padding:8px;">
                 <div class="kamva-kanban-col-header d-flex justify-content-between align-items-center mb-2 px-1">
                     <span class="font-weight-bold">{{ $def['label'] ?? $col['key'] }}</span>
                     <small class="text-muted">
@@ -66,7 +68,7 @@
                 <div class="kamva-kanban-col-body" data-stage="{{ $col['key'] }}" data-accepts-drop="{{ $acceptsDrop ? '1' : '0' }}" style="min-height:80px;">
                     @foreach ($col['cards'] as $card)
                         <div class="kamva-kanban-card" data-id="{{ $card['id'] ?? '' }}"
-                             style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:4px;padding:8px 10px;margin-bottom:8px;cursor:grab;font-size:0.875rem;">
+                             style="border:1px solid;border-radius:4px;padding:8px 10px;margin-bottom:8px;cursor:grab;font-size:0.875rem;">
                             @if (!empty($card['href']))
                                 <a href="{{ $card['href'] }}" draggable="false" style="color:inherit;text-decoration:none;display:block;">
                             @endif
@@ -74,10 +76,10 @@
                                     <div style="font-weight:600;margin-bottom:2px;">{{ $card['title'] }}</div>
                                 @endif
                                 @if (!empty($card['subtitle']))
-                                    <div class="text-truncate" style="font-size:0.75rem;color:#718096;">{{ $card['subtitle'] }}</div>
+                                    <div class="text-truncate kc-muted" style="font-size:0.75rem;">{{ $card['subtitle'] }}</div>
                                 @endif
                                 @if (!empty($card['body']))
-                                    <div style="font-size:0.75rem;color:#718096;margin-top:4px;">{{ $card['body'] }}</div>
+                                    <div class="kc-muted" style="font-size:0.75rem;margin-top:4px;">{{ $card['body'] }}</div>
                                 @endif
                                 @if (isset($card['value']) && $card['value'] !== null)
                                     <div style="font-size:0.75rem;font-weight:600;margin-top:6px;">{{ $card['value'] }}</div>
