@@ -271,7 +271,12 @@ class CRUDController extends Controller
             return $rows;
         }
 
-        if (empty($by) || count($this->cols) < $by) {
+        // $by is the 1-based column index sent by DataTables (request input,
+        // untrusted). Cast it and bound-check before indexing $this->cols so a
+        // missing/non-numeric/out-of-range value falls back to created_at
+        // instead of producing an undefined-index notice.
+        $by = (int) $by;
+        if ($by < 1 || $by > count($this->cols)) {
             return $rows->orderBy("created_at", "desc");
         }
 
