@@ -8,9 +8,19 @@ class KamvaCRUDServiceProvider extends ServiceProvider
 {
     public function register()
     {
-        $this->app->singleton('kamva-crud', function () {
-            return new Service();
-        });
+        // The Service holds per-request state (the active controller, current
+        // model id, and per-field option caches). A plain singleton persists
+        // across requests on long-running workers (Laravel Octane / Swoole),
+        // leaking one request's state — and option caches — into the next.
+        // Bind it request-scoped where the container supports it (Laravel 8.23+);
+        // fall back to singleton on older versions.
+        $factory = fn () => new Service();
+
+        if (method_exists($this->app, 'scoped')) {
+            $this->app->scoped('kamva-crud', $factory);
+        } else {
+            $this->app->singleton('kamva-crud', $factory);
+        }
     }
 
      public function boot()

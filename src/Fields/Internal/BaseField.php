@@ -132,14 +132,23 @@ abstract class BaseField implements FieldContract
 
     public function getOptionsFromSource()
     {
-        $cacheKey = 'source_cache_' . $this->getName();
-
-        if (!empty($this->getSource())) {
-            $source = KamvaCrud::get($cacheKey);
-            return !empty($source) ? $source : KamvaCrud::set($cacheKey, $this->source->toArray());
+        if (empty($this->getSource())) {
+            return null;
         }
 
-        return null;
+        // Scope the cache key by the active controller class so two
+        // controllers that both have a field named e.g. "status" don't share
+        // each other's option list. Falls back to a global scope when no
+        // controller context is set (e.g. standalone field usage / tests).
+        $context  = KamvaCrud::get('class');
+        $scope    = is_object($context) ? get_class($context) : 'global';
+        $cacheKey = 'source_cache_' . $scope . '_' . $this->getName();
+
+        $source = KamvaCrud::get($cacheKey);
+
+        // Cache by array identity, not emptiness: a legitimately empty option
+        // list ([]) must be cached too, otherwise it re-queries on every call.
+        return is_array($source) ? $source : KamvaCrud::set($cacheKey, $this->source->toArray());
     }
     /**
      * @param $key
