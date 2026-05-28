@@ -308,8 +308,12 @@ class CRUDController extends Controller
         $rows           = $rows->get();
         return [
             "data"              => $this->getJsonLoaderRecords($start, $rows),
-            "recordsTotal"      => count($initialRows->get()),
-            "recordsFiltered"   => count($filteredRows->get()),
+            // Use SQL COUNT(*) rather than ->get() + count(): the latter
+            // hydrates every matching row into Eloquent models just to count
+            // them, on every DataTables draw — a memory/latency problem and a
+            // DoS vector on large tables.
+            "recordsTotal"      => $initialRows->count(),
+            "recordsFiltered"   => $filteredRows->count(),
             "draw"              => $request->input('draw'),
         ];
     }
