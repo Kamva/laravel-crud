@@ -161,7 +161,16 @@ class CRUDController extends Controller
 
     private function handleApiResponse($rows)
     {
-        $rows   = $rows->paginate(intval(env("CRUD_PAGINATE_SIZE")));
+        // Read from config (not env() at runtime): env() returns null once
+        // `php artisan config:cache` runs, which would make this paginate(0)
+        // and trigger a division-by-zero in the paginator. Fall back to a
+        // sane default if the configured value is non-positive.
+        $perPage = (int) config('kamva-crud.paginate_size', 15);
+        if ($perPage < 1) {
+            $perPage = 15;
+        }
+
+        $rows   = $rows->paginate($perPage);
         $rows->setCollection($this->getApiDataCollection($rows));
 
         return KamvaCrud::apiResponse($this->createApiResponseFromData($rows));
