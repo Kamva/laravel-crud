@@ -147,6 +147,16 @@ class Form
         if ($saveIt) {
             $model->save();
             $this->runSkippedMethods($request, $model);
+
+            // Skipped-field callbacks run after the initial save (they often
+            // need the model key). If a callback set attributes on the model
+            // without persisting them itself, flush them now. Guarded by
+            // isDirty() so a clean model issues no second query and fires no
+            // extra events — this is what makes update() consistent with
+            // store() now that update() no longer does its own trailing save.
+            if ($model->isDirty()) {
+                $model->save();
+            }
         }
     }
 
