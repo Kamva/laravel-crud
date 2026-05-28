@@ -777,11 +777,15 @@ class CRUDController extends Controller
             $like    = '%' . $escaped . '%';
 
             $rows->where(function ($q) use ($columns, $like) {
+                // Wrap each identifier through the query grammar so the column
+                // name is properly quoted/escaped per driver. This keeps the
+                // value parameter-bound AND neutralises identifier injection
+                // if a caller ever passes a non-trusted column name. LOWER()
+                // is broadly portable; database collation determines whether
+                // the underlying LIKE itself is case-sensitive.
+                $grammar = $q->getGrammar();
                 foreach ($columns as $col) {
-                    // LOWER(col) is broadly portable; database collation
-                    // determines whether the underlying LIKE itself is
-                    // case-sensitive.
-                    $q->orWhereRaw("LOWER({$col}) LIKE ?", [$like]);
+                    $q->orWhereRaw("LOWER({$grammar->wrap($col)}) LIKE ?", [$like]);
                 }
             });
         };
