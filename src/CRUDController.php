@@ -314,11 +314,19 @@ class CRUDController extends Controller
         ];
     }
 
-    public function checkModel($id, $assign = true)
+    public function checkModel($id, $assign = true, $createIfMissing = true)
     {
         $data       = $id ? $this->getModel($assign)->find($id) : ($this->getPreference('showLatestInAPI') ? $this->getModel()->latest()->first() : $this->getModel()->first());
 
         if (empty($data)) {
+            // The observe endpoint (and any other read-only caller) passes
+            // $createIfMissing = false so a missing record never triggers a
+            // write. Without this, an unauthenticated/replayed observe POST
+            // against a singleType controller would create+save a blank row.
+            if (!$createIfMissing) {
+                return null;
+            }
+
             if ($this->getPreference('singleType')) {
                 $data = $this->getInstance();
                 $data->save();

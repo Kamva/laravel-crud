@@ -6,7 +6,7 @@
     $("[name={{$observe['field']}}]").on("change",function (){
         $(".loading").show();
 
-        $.post("{{route('kamva-crud.process')}}", {c: "{{$c}}",v:$(this).val()})
+        $.post("{{route('kamva-crud.process')}}", {c: "{{$c}}",v:$(this).val(),_token:"{{ csrf_token() }}"})
             .done(function (res){
                 $(".loading").hide();
                 $("k-crud[id='{{$field->getName()}}']").html(res);

@@ -46,7 +46,7 @@ class ProcessController extends Controller
             throw new KamvaCrudException("field not found");
         }
 
-        $field->field()->setFieldData($id ? $controller->checkModel($id) : null);
+        $field->field()->setFieldData($id ? $controller->checkModel($id, true, false) : null);
 
         $observe = collect($field->field()->getObservers())->first(function ($observer) use ($observe) {
             return $observer['field'] == $observe;
@@ -62,6 +62,6 @@ class ProcessController extends Controller
 
         view()->share('errors', new ViewErrorBag());
 
-        return $observe ? $field->render($id ? $controller->checkModel($id) : null) : null;
+        return $observe ? $field->render($id ? $controller->checkModel($id, true, false) : null) : null;
     }
 }
