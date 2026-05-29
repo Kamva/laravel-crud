@@ -308,12 +308,15 @@ class CRUDController extends Controller
         $rows           = $rows->get();
         return [
             "data"              => $this->getJsonLoaderRecords($start, $rows),
-            // Use SQL COUNT(*) rather than ->get() + count(): the latter
-            // hydrates every matching row into Eloquent models just to count
-            // them, on every DataTables draw — a memory/latency problem and a
-            // DoS vector on large tables.
-            "recordsTotal"      => $initialRows->count(),
-            "recordsFiltered"   => $filteredRows->count(),
+            // Count via getCountForPagination() rather than ->get() + count():
+            // the latter hydrates every matching row into Eloquent models just
+            // to count them, on every DataTables draw — a memory/latency
+            // problem and a DoS vector on large tables. getCountForPagination()
+            // is the same routine the paginator uses, so it preserves
+            // distinct()/groupBy() semantics (wrapping in a subquery) where a
+            // bare count() would not.
+            "recordsTotal"      => $initialRows->toBase()->getCountForPagination(),
+            "recordsFiltered"   => $filteredRows->toBase()->getCountForPagination(),
             "draw"              => $request->input('draw'),
         ];
     }
