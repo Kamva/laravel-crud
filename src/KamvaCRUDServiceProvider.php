@@ -8,19 +8,16 @@ class KamvaCRUDServiceProvider extends ServiceProvider
 {
     public function register()
     {
-        // The Service holds per-request state (the active controller, current
-        // model id, and per-field option caches). A plain singleton persists
-        // across requests on long-running workers (Laravel Octane / Swoole),
-        // leaking one request's state — and option caches — into the next.
-        // Bind it request-scoped where the container supports it (Laravel 8.23+);
-        // fall back to singleton on older versions.
-        $factory = fn () => new Service();
-
-        if (method_exists($this->app, 'scoped')) {
-            $this->app->scoped('kamva-crud', $factory);
-        } else {
-            $this->app->singleton('kamva-crud', $factory);
-        }
+        // Singleton on purpose: the Service also holds GLOBAL registries that
+        // consumers populate once from a service provider — addColumnType(),
+        // addExtension(), setDefaultACLMethod(). Making it request-scoped would
+        // flush those between Octane/Swoole request lifecycles and silently
+        // disable custom column types and store extensions after the first
+        // request. Per-request cache isolation is handled at the cache-key
+        // level instead (see BaseField::getOptionsFromSource()).
+        $this->app->singleton('kamva-crud', function () {
+            return new Service();
+        });
     }
 
      public function boot()
