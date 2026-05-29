@@ -557,7 +557,11 @@ class CRUDController extends Controller
 
     public function update($id, Request $request)
     {
-        $model  = $this->checkModel($id, false);
+        // Resolve through the scoped query (assign=true) so that records
+        // outside this controller's setQuery() scope cannot be updated by
+        // guessing their ID. A scoped-out ID yields no match and aborts 404,
+        // exactly like index()/show()/edit(). See destroy() for the same guard.
+        $model  = $this->checkModel($id);
 
         $this->form->validate($request, $model);
 
@@ -574,7 +578,9 @@ class CRUDController extends Controller
 
     public function destroy($id)
     {
-        $model       = $this->checkModel($id, false);
+        // Resolve through the scoped query (assign=true) — see update().
+        // Without this, a scoped-out record could be deleted by ID.
+        $model       = $this->checkModel($id);
 
         try {
             /** @var FieldContainer $field */
