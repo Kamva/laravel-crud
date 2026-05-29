@@ -73,7 +73,11 @@ class Service
 
     public function isApi()
     {
-        return request()->is('api*') || request()->routeIs('kamva-crud.process');
+        // Match the `api` segment exactly or an `api/...` prefix — not any
+        // path that merely starts with the letters "api" (e.g. /apiary,
+        // /api-docs), which the previous 'api*' glob misclassified as API
+        // requests and served JSON for.
+        return request()->is('api', 'api/*') || request()->routeIs('kamva-crud.process');
     }
 
     public function apiResponse($data, $code = 200)
