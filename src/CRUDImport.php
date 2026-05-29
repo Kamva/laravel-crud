@@ -4,6 +4,7 @@ namespace Kamva\Crud;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Kamva\Crud\Containers\ImportProfileContainer;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
@@ -25,17 +26,22 @@ class CRUDImport implements ToCollection, WithChunkReading, WithStartRow
      */
     public function collection(Collection $collection)
     {
-        foreach ($collection as $item) {
-            if (count($this->container->getFields()) > 0) {
-                $model = $this->model->newInstance();
-                foreach ($this->container->getFields() as $i => $field) {
-                    $model->{$field->getName()} = $field->getValue($item[$i] ?? null, true);
+        // Wrap each chunk in a transaction so a row that fails part-way (a save
+        // error or a throwing each() callback) rolls back the rest of the
+        // chunk instead of leaving it half-imported.
+        DB::transaction(function () use ($collection) {
+            foreach ($collection as $item) {
+                if (count($this->container->getFields()) > 0) {
+                    $model = $this->model->newInstance();
+                    foreach ($this->container->getFields() as $i => $field) {
+                        $model->{$field->getName()} = $field->getValue($item[$i] ?? null, true);
+                    }
+                    $model->save();
                 }
-                $model->save();
-            }
 
-            $this->container->eachCallback($item, $model ?? null);
-        }
+                $this->container->eachCallback($item, $model ?? null);
+            }
+        });
     }
 
     public function chunkSize(): int
