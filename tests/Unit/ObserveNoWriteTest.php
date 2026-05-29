@@ -3,16 +3,19 @@
 namespace Kamva\Crud\Tests\Unit;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Schema;
 use Kamva\Crud\CRUDController;
 use Kamva\Crud\Form;
+use Kamva\Crud\ProcessController;
+use Kamva\Crud\Tests\Stubs\StubTextField;
 use Kamva\Crud\Tests\TestCase;
 
 /**
- * checkModel($id, $assign, $createIfMissing=false) — used by the observe
- * endpoint — must never create a record. Previously a singleType controller
- * would create+save a blank row on a missing model, reachable from the
- * (session/CSRF-less) observe POST.
+ * The observe endpoint must never create a record. For singleType controllers
+ * checkModel() creates+saves a blank row on a missing model, so the observe
+ * path resolves the model with a plain scoped find() instead.
  */
 class ObserveNoWriteTest extends TestCase
 {
@@ -27,39 +30,32 @@ class ObserveNoWriteTest extends TestCase
         });
     }
 
-    public function test_check_model_does_not_create_when_create_if_missing_is_false(): void
+    public function test_observe_does_not_create_a_row_for_missing_single_type_model(): void
     {
-        $controller = $this->singleTypeController();
-        $controller->init();
+        // payload: observedField | thisField | ControllerClass | id
+        $payload = Crypt::encryptString('trigger|target|' . ObserveSingleController::class . '|999');
 
-        $result = $controller->checkModel(999, true, false);
+        $request = Request::create('/kc-process/observe', 'POST', ['c' => $payload, 'v' => 'anything']);
 
-        $this->assertNull($result);
-        $this->assertSame(0, SingleSetting::count(), 'observe path must not create rows');
+        (new ProcessController())->observe($request);
+
+        $this->assertSame(0, SingleSetting::count(), 'observe must not create a singleType row');
+    }
+}
+
+class ObserveSingleController extends CRUDController
+{
+    public function __construct()
+    {
+        parent::__construct(new Form());
     }
 
-    public function test_check_model_still_creates_for_single_type_by_default(): void
+    public function setup(): void
     {
-        $controller = $this->singleTypeController();
-        $controller->init();
-
-        $result = $controller->checkModel(null);
-
-        $this->assertNotNull($result);
-        $this->assertSame(1, SingleSetting::count());
-    }
-
-    private function singleTypeController(): CRUDController
-    {
-        $form = $this->app->make(Form::class);
-
-        return new class($form) extends CRUDController {
-            public function setup(): void
-            {
-                $this->setModel(SingleSetting::class);
-                $this->setSingleType(true);
-            }
-        };
+        $this->setModel(SingleSetting::class);
+        $this->setSingleType(true);
+        $this->addField(StubTextField::class, 'Target', 'target')
+            ->observe('trigger', fn ($value, $field) => true);
     }
 }
 
