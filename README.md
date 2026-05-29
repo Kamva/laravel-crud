@@ -36,7 +36,7 @@ Here is the full lifecycle from install to a working page:
 - `BaseField` / `FieldContract` — base classes for your field types
 - Excel import & export
 - Field observer (AJAX-driven dependent fields)
-- API JSON mode (when route path starts with `api`)
+- API JSON mode (when the request path is `api` or begins with `api/`)
 
 **What you must build yourself** (detailed in the next section):
 - Field type classes (e.g. `TextType`, `SelectType`)
@@ -602,7 +602,8 @@ KamvaCrud::addExtension(ExtensionManager::STORE_TYPE, function ($value) {
 
 ## API Usage
 
-Any route whose path starts with `api` is treated as an API request.
+Any route whose path is `api` or begins with `api/` is treated as an API
+request (so `/apiary` or `/api-docs` are **not** matched).
 
 ```
 GET  /api/products          → paginated JSON list
