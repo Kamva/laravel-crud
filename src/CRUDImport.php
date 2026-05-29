@@ -25,17 +25,24 @@ class CRUDImport implements ToCollection, WithChunkReading, WithStartRow
      */
     public function collection(Collection $collection)
     {
-        foreach ($collection as $item) {
-            if (count($this->container->getFields()) > 0) {
-                $model = $this->model->newInstance();
-                foreach ($this->container->getFields() as $i => $field) {
-                    $model->{$field->getName()} = $field->getValue($item[$i] ?? null, true);
+        // Wrap each chunk in a transaction so a row that fails part-way (a save
+        // error or a throwing each() callback) rolls back the rest of the
+        // chunk instead of leaving it half-imported. Open the transaction on
+        // the model's OWN connection — using the default connection would not
+        // cover (or roll back) writes for a model on a secondary connection.
+        $this->model->getConnection()->transaction(function () use ($collection) {
+            foreach ($collection as $item) {
+                if (count($this->container->getFields()) > 0) {
+                    $model = $this->model->newInstance();
+                    foreach ($this->container->getFields() as $i => $field) {
+                        $model->{$field->getName()} = $field->getValue($item[$i] ?? null, true);
+                    }
+                    $model->save();
                 }
-                $model->save();
-            }
 
-            $this->container->eachCallback($item, $model ?? null);
-        }
+                $this->container->eachCallback($item, $model ?? null);
+            }
+        });
     }
 
     public function chunkSize(): int
