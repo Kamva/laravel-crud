@@ -1,4 +1,4 @@
-# Detail view (v2+)
+# Detail view
 
 By default, the `show()` action renders the create/edit form in read-only
 mode. For a richer detail page with arbitrary sections, sidebar panels,

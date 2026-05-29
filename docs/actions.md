@@ -1,7 +1,7 @@
 # Actions
 
 Two flavours: **row actions** (per-row buttons in the list) and **top
-actions** (page-header buttons, v2+).
+actions** (page-header buttons).
 
 ## Row actions
 
@@ -46,7 +46,7 @@ for the exact arguments, which typically include access-control closures.
 - `ChangeStatusAction` — change a status attribute
 - `CustomAction` — anything else
 
-## Top actions (v2+)
+## Top actions
 
 For buttons that live in the page header rather than per-row, use
 `addTopAction()`:

@@ -1,4 +1,4 @@
-# Stats (v2+)
+# Stats
 
 Summary statistic cards rendered above the list / kanban view. Use for
 quick "X open leads", "Y total revenue" indicators that link to filtered

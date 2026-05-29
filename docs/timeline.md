@@ -1,4 +1,4 @@
-# Timeline (v2+)
+# Timeline
 
 Merge multiple sources of "what happened to this record" into one
 chronological feed. Typical sources: stage transitions, audit-log

@@ -74,7 +74,7 @@ class MyField extends BaseField implements FieldContract
 }
 ```
 
-## Read-only fields (v2+)
+## Read-only fields
 
 Use `->readOnly()` to mark a field as form-display-only. The field still
 renders in the form (showing the current value), but submitted input is
@@ -91,7 +91,7 @@ Different from `->skip()`, which is for fields that need after-save side
 effects (file uploads, etc.). Read-only fields run no callback at all on
 save.
 
-## Conditional visibility (v2+)
+## Conditional visibility
 
 Use `->showWhen(Closure $predicate)` to hide a field unless a condition
 is met. The predicate receives the model (or `null` on create forms) and

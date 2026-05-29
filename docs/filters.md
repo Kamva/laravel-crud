@@ -22,7 +22,7 @@ $this->addFilter(
 
 The callback only runs when the input is present (`!empty($request->get($input))`).
 
-## addHiddenFilter (v2+) — no UI
+## addHiddenFilter — no UI
 
 For filters driven by something other than the filter form (deep links,
 dashboard widget URLs, toggles elsewhere in the UI):
@@ -41,7 +41,7 @@ fires without any filter widget needing to be visible on the page.
 (no field arg). The same effect is achieved by calling `addFilter` with no
 field.
 
-## addSearchField (v2+) — multi-column LIKE search
+## addSearchField — multi-column LIKE search
 
 The "search by name OR email OR phone" pattern, packaged:
 
@@ -80,7 +80,7 @@ The third arg is the **field name** (not the input name) — it looks up
 the matching field from the form and uses it as the filter's render
 widget.
 
-## Hidden filters in views (v2+)
+## Hidden filters in views
 
 `FilterContainer` now exposes `hasField(): bool` and `getField(): ?FieldContract`.
 The list view template iterates `$filters` to render the filter form — to

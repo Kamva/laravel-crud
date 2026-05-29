@@ -775,11 +775,11 @@ src/
 
 ---
 
-## v2 features (this branch)
+## Features
 
 The following APIs are additive on top of the original scaffolding —
-existing controllers continue working unchanged. Each has a dedicated
-doc with the full API + examples.
+existing controllers continue working unchanged. All ship in the `1.0.0`
+release. Each has a dedicated doc with the full API + examples.
 
 | Feature              | Doc                                              | Summary |
 |----------------------|--------------------------------------------------|---------|
@@ -809,7 +809,7 @@ Two soft-behaviour changes worth flagging:
 composer test
 ```
 
-61 unit tests covering the v2 additions and their non-breaking
+92 unit tests covering these features and their non-breaking
 contracts. Run via orchestra/testbench against PHP 8.1+. See `tests/`.
 
 ---
