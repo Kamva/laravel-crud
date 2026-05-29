@@ -40,6 +40,8 @@ class CRUDController extends Controller
     private array $detailSidebars = [];
     private ?\Kamva\Crud\Kanban\KanbanConfig $kanban = null;
     private array $stats = [];
+    private bool $rowCounter   = true;
+    private bool $createButton = true;
 
     public function __construct(Form $form)
     {
@@ -70,6 +72,33 @@ class CRUDController extends Controller
     {
         $this->setPreference('orderByCol', $col);
         $this->setPreference('orderByOrder', $order);
+    }
+
+    /**
+     * Hide the leading row-number column in the list view. Published list
+     * templates receive `$rowCounter` (bool) and should render the counter
+     * `<th>`/cell only when it's true; the JSON loader omits the counter cell
+     * and shifts its column-ordering offset to match.
+     *
+     * @return $this
+     */
+    public function disableRowCounter()
+    {
+        $this->rowCounter = false;
+        return $this;
+    }
+
+    /**
+     * Hide the "create" button in the list view. Published list templates
+     * receive `$createButton` (bool) and should render the create button only
+     * when it's true.
+     *
+     * @return $this
+     */
+    public function hideCreateButton()
+    {
+        $this->createButton = false;
+        return $this;
     }
 
     public function getMethodRoute($name)
@@ -241,7 +270,9 @@ class CRUDController extends Controller
         foreach ($rows as $row) {
             $value      = [];
 
-            $value[]    = $i++;
+            if ($this->rowCounter) {
+                $value[] = $i++;
+            }
 
             foreach ($this->cols as $col) {
                 $value[] = $col->getValue($row);
@@ -280,20 +311,24 @@ class CRUDController extends Controller
             return $rows;
         }
 
-        // $by is the 1-based column index sent by DataTables (request input,
-        // untrusted). Cast it and bound-check before indexing $this->cols so a
-        // missing/non-numeric/out-of-range value falls back to created_at
-        // instead of producing an undefined-index notice.
-        $by = (int) $by;
-        if ($by < 1 || $by > count($this->cols)) {
+        // DataTables sends a 0-based column index across all rendered columns.
+        // The leading row-counter column occupies index 0 only when it's
+        // enabled, so the offset into $this->cols depends on rowCounter:
+        //   counter on  → data columns start at DataTables index 1 (offset 1)
+        //   counter off → data columns start at DataTables index 0 (offset 0)
+        // $by is untrusted request input — the (int) cast guards non-numeric
+        // values, and the bound check covers out-of-range indexes.
+        $offset = $this->rowCounter ? 1 : 0;
+        $index  = (int) $by - $offset;
+
+        if ($index < 0 || $index >= count($this->cols)) {
             return $rows->orderBy("created_at", "desc");
         }
 
-        $by = $this->cols[$by - 1];
-        $by = $by->guessColNameInDB();
+        $colName = $this->cols[$index]->guessColNameInDB();
 
-        if (!empty($by)) {
-            return $rows->orderBy($by, $dir);
+        if (!empty($colName)) {
+            return $rows->orderBy($colName, $dir);
         }
 
         return $rows;
@@ -456,7 +491,10 @@ class CRUDController extends Controller
                 ]);
             }
 
-            return view('kamva-crud::list', compact('title', 'cols', 'createRoute', 'importProfiles', 'storeRoute', 'filters', 'topActions', 'stats'));
+            $rowCounter   = $this->rowCounter;
+            $createButton = $this->createButton;
+
+            return view('kamva-crud::list', compact('title', 'cols', 'createRoute', 'importProfiles', 'storeRoute', 'filters', 'topActions', 'stats', 'rowCounter', 'createButton'));
         }
     }
 
