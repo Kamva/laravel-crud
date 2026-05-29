@@ -8,6 +8,8 @@ class KamvaCRUDServiceProvider extends ServiceProvider
 {
     public function register()
     {
+        $this->mergeConfigFrom(__DIR__ . '/../config/kamva-crud.php', 'kamva-crud');
+
         // Singleton on purpose: the Service also holds GLOBAL registries that
         // consumers populate once from a service provider — addColumnType(),
         // addExtension(), setDefaultACLMethod(). Making it request-scoped would
@@ -32,5 +34,8 @@ class KamvaCRUDServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/views'      => resource_path('views/vendor/kamva-crud')
         ]);
+        $this->publishes([
+            __DIR__ . '/../config/kamva-crud.php' => config_path('kamva-crud.php')
+        ], 'kamva-crud-config');
     }
 }
