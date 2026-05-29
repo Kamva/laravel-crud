@@ -8,6 +8,13 @@ class KamvaCRUDServiceProvider extends ServiceProvider
 {
     public function register()
     {
+        // Singleton on purpose: the Service also holds GLOBAL registries that
+        // consumers populate once from a service provider — addColumnType(),
+        // addExtension(), setDefaultACLMethod(). Making it request-scoped would
+        // flush those between Octane/Swoole request lifecycles and silently
+        // disable custom column types and store extensions after the first
+        // request. Per-request cache isolation is handled at the cache-key
+        // level instead (see BaseField::getOptionsFromSource()).
         $this->app->singleton('kamva-crud', function () {
             return new Service();
         });
