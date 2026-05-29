@@ -1,4 +1,4 @@
-# Kanban view (v2+)
+# Kanban view
 
 Drop-in kanban variant for any model with a status-like attribute. Cards
 are bucketed by an attribute value, dragged between columns to trigger

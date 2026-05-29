@@ -16,7 +16,7 @@ $this->addColumn('Account type', fn ($org) => $org->personal ? 'Personal' : 'Bus
 $this->addColumn('Status', fn ($lead) => $lead->status->label());
 ```
 
-## Column renderers (v2+)
+## Column renderers
 
 For common rendering patterns (badges, links, booleans, dates) use the
 `Kamva\Crud\Columns\Renderers` helpers. They return Closures that drop
