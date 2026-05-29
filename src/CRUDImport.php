@@ -4,7 +4,6 @@ namespace Kamva\Crud;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Kamva\Crud\Containers\ImportProfileContainer;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
@@ -28,8 +27,10 @@ class CRUDImport implements ToCollection, WithChunkReading, WithStartRow
     {
         // Wrap each chunk in a transaction so a row that fails part-way (a save
         // error or a throwing each() callback) rolls back the rest of the
-        // chunk instead of leaving it half-imported.
-        DB::transaction(function () use ($collection) {
+        // chunk instead of leaving it half-imported. Open the transaction on
+        // the model's OWN connection — using the default connection would not
+        // cover (or roll back) writes for a model on a secondary connection.
+        $this->model->getConnection()->transaction(function () use ($collection) {
             foreach ($collection as $item) {
                 if (count($this->container->getFields()) > 0) {
                     $model = $this->model->newInstance();
