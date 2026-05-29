@@ -791,12 +791,18 @@ class CRUDController extends Controller
             $escaped = addcslashes(mb_strtolower($term), '%_\\');
             $like    = '%' . $escaped . '%';
 
-            $rows->where(function ($q) use ($columns, $like) {
+            // Resolve the query grammar from the connection (works whether
+            // $rows is an Eloquent or base query builder, including Laravel 6
+            // where getGrammar() isn't in Eloquent's passthru list). Wrapping
+            // each identifier quotes/escapes it per driver, keeping the value
+            // parameter-bound AND neutralising identifier injection if a caller
+            // ever passes a non-trusted column name. LOWER() is broadly
+            // portable; collation decides whether the LIKE is case-sensitive.
+            $grammar = $rows->getConnection()->getQueryGrammar();
+
+            $rows->where(function ($q) use ($columns, $like, $grammar) {
                 foreach ($columns as $col) {
-                    // LOWER(col) is broadly portable; database collation
-                    // determines whether the underlying LIKE itself is
-                    // case-sensitive.
-                    $q->orWhereRaw("LOWER({$col}) LIKE ?", [$like]);
+                    $q->orWhereRaw("LOWER({$grammar->wrap($col)}) LIKE ?", [$like]);
                 }
             });
         };
