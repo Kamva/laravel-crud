@@ -54,7 +54,7 @@ class UpdateSaveTest extends TestCase
     {
         $widget = UpdateWidget::create(['name' => 'before']);
 
-        $controller = $this->controller(withSkip: true);
+        $controller = $this->controller(true);
         $this->registerIndexRoute($controller);
         $controller->init();
 
