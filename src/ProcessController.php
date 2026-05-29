@@ -46,7 +46,13 @@ class ProcessController extends Controller
             throw new KamvaCrudException("field not found");
         }
 
-        $field->field()->setFieldData($id ? $controller->checkModel($id) : null);
+        // Read-only model lookup through the controller's scoped query. We
+        // deliberately do NOT call checkModel() here: for singleType
+        // controllers checkModel() creates+saves a blank row when the record
+        // is missing, which must never happen from this (replayable) endpoint.
+        $model = $id ? $controller->getModel()->find($id) : null;
+
+        $field->field()->setFieldData($model);
 
         $observe = collect($field->field()->getObservers())->first(function ($observer) use ($observe) {
             return $observer['field'] == $observe;
@@ -62,6 +68,6 @@ class ProcessController extends Controller
 
         view()->share('errors', new ViewErrorBag());
 
-        return $observe ? $field->render($id ? $controller->checkModel($id) : null) : null;
+        return $observe ? $field->render($model) : null;
     }
 }
