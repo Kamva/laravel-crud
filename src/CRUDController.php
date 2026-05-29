@@ -573,12 +573,14 @@ class CRUDController extends Controller
         $this->form->validate($request, $model);
 
         try {
+            // saveToModel($saveIt: true) already persists the model and runs
+            // skipped-field callbacks; a second $model->save() here re-fired
+            // the saving/saved model events on every update (and matched
+            // neither store()'s behaviour). Let saveToModel own persistence.
             $this->form->saveToModel($request, $model, true);
         } catch (\Exception $e) {
             return $this->handleException($e);
         }
-
-        $model->save();
 
         return $this->handleSuccessResponse("به روز رسانی با موفقیت انجام شد");
     }
