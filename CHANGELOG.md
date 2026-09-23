@@ -44,6 +44,17 @@ unchanged, except for the fixes below.
 - **Invalid DataTables sort direction.** An `order[0][dir]` other than
   `asc`/`desc` made `orderBy()` throw (HTTP 500). It now falls back to `desc`.
 
+### Documentation
+
+- README: the list view example now loads rows the way the controller serves
+  them (server-side DataTables JSON); the old example looped over variables
+  the controller never passed. Added the list JSON format, the API record
+  shape, the export's header and row rules, the full list of view variables,
+  and an "Upgrading & security" section.
+- README: PHP requirement corrected to 8.1.
+- `docs/filters.md`: how `addFieldFilter()` builds its widget.
+- `docs/actions.md`: customising the row-actions markup.
+
 ### Internal
 
 - Row serialization for the API, the export and the list view goes through

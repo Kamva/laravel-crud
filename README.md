@@ -157,14 +157,19 @@ class SelectType extends BaseField
 
 ### 2. Blade views (the published stubs)
 
-After `vendor:publish`, you get four stub files under
-`resources/views/vendor/kamva-crud/`. Three of the four contain only
-`{{-- Implement Me ! --}}`. You must fill them in.
+After `vendor:publish`, the package views are copied to
+`resources/views/vendor/kamva-crud/`. `list.blade.php`, `create.blade.php` and
+`fields/read_only.blade.php` contain only `{{-- Implement Me ! --}}`; you must
+fill them in. The others (`actions`, `observe`, `detail`, `kanban`) work as
+shipped and are there to restyle if you want to.
 
 **`list.blade.php`** — the record table
 
-Variables injected: `$title`, `$cols`, `$createRoute`, `$storeRoute`,
-`$importProfiles`, `$filters`.
+The list page itself carries no rows. The table loads them from the same
+`index()` URL with a JSON request, in the server-side
+[DataTables](https://datatables.net/) format (see
+[List data](#list-data-datatables-json) below). Variables are listed in
+[Implement the views](#3-implement-the-views).
 
 ```blade
 @extends('layouts.app')
@@ -173,39 +178,52 @@ Variables injected: `$title`, `$cols`, `$createRoute`, `$storeRoute`,
 <div class="container">
     <h1>{{ $title }}</h1>
 
-    @if ($createRoute)
-        <a href="{{ $createRoute }}" class="btn btn-primary mb-3">New record</a>
+    @foreach ($topActions as $action)
+        <a href="{{ $action['url'] }}" class="btn {{ $action['class'] }}">{{ $action['caption'] }}</a>
+    @endforeach
+
+    @if ($createButton && $createRoute)
+        <a href="{{ $createRoute }}" class="btn btn-primary">New record</a>
     @endif
 
-    <table class="table">
+    {{-- Filters are read from the query string. --}}
+    <form method="GET">
+        @foreach ($filters as $filter)
+            {!! $filter->render() !!}
+        @endforeach
+        <button class="btn btn-secondary">Filter</button>
+    </form>
+
+    <table id="crud-table" class="table">
         <thead>
             <tr>
+                @if ($rowCounter)<th>#</th>@endif
                 @foreach ($cols as $col)
-                    <th>{{ $col->title }}</th>
+                    <th>{{ $col->getName() }}</th>
                 @endforeach
-                <th>Actions</th>
+                <th></th>
             </tr>
         </thead>
-        <tbody>
-            @foreach ($rows as $row)
-                <tr>
-                    @foreach ($cols as $col)
-                        <td>{!! $col->getValue($row) !!}</td>
-                    @endforeach
-                    <td>
-                        @foreach ($actions as $action)
-                            {!! $action->render($row) !!}
-                        @endforeach
-                    </td>
-                </tr>
-            @endforeach
-        </tbody>
     </table>
-
-    {{ $rows->links() }}
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    // Same URL, so the filter query string applies to the table too.
+    // DataTables asks for JSON, which makes index() return the row data.
+    $('#crud-table').DataTable({
+        serverSide: true,
+        processing: true,
+        ajax: window.location.href,
+        columnDefs: [{ targets: -1, orderable: false }],
+    });
+</script>
+@endpush
 ```
+
+Cell values are HTML and are not escaped (column renderers and the actions
+cell return markup), which is DataTables' default for string data.
 
 **`create.blade.php`** — the create / edit / show form
 
@@ -272,7 +290,7 @@ Then run `composer dump-autoload`.
 
 | Requirement | Version |
 |---|---|
-| PHP | >= 7.4 |
+| PHP | >= 8.1 |
 | Laravel | >= 6.0 |
 | maatwebsite/excel | ^3.1 |
 
@@ -294,6 +312,21 @@ php artisan vendor:publish --provider="Kamva\\Crud\\KamvaCRUDServiceProvider"
 ```
 
 This copies the view stubs to `resources/views/vendor/kamva-crud/`.
+
+---
+
+## Upgrading & security
+
+Keep the package on the latest release. Releases can contain security fixes,
+and older versions do not get them.
+
+- **If you install from the untagged `dev-main` branch, or pin a commit from
+  before `1.0.0`, upgrade to `1.0.0` or later.** It contains important security
+  fixes.
+- Read [CHANGELOG.md](CHANGELOG.md) before every upgrade. Each release lists
+  its breaking changes and what to change in your app.
+- To report a security problem, contact the maintainers privately instead of
+  opening a public issue.
 
 ---
 
@@ -362,7 +395,11 @@ After publishing, edit `resources/views/vendor/kamva-crud/list.blade.php` and
 | `$createRoute` | string\|null | URL for the create button |
 | `$storeRoute` | string\|null | URL for inline import form |
 | `$importProfiles` | array | `[id => name]` import profile map |
-| `$filters` | `FilterContainer[]` | Filter field definitions |
+| `$filters` | `FilterContainer[]` | Filters that have a UI field (hidden filters are left out) |
+| `$topActions` | array | Page-header buttons: `caption`, `url`, `icon`, `class` (see [docs/actions.md](docs/actions.md)) |
+| `$stats` | array | Summary numbers: `label`, `value`, `icon`, `color`, `link` (see [docs/stats.md](docs/stats.md)) |
+| `$rowCounter` | bool | Render the leading `#` column (`false` after `disableRowCounter()`) |
+| `$createButton` | bool | Render the create button (`false` after `hideCreateButton()`) |
 
 **create / edit / show view**
 
@@ -371,6 +408,45 @@ After publishing, edit `resources/views/vendor/kamva-crud/list.blade.php` and
 | `$title` | string | Page title |
 | `$form` | `Form` | Call `$form->render()`, `$form->scripts()` |
 | `$data` | `Model\|null` | `null` on create, model instance on edit/show |
+| `$visibleFields` | `FieldContainer[]` | Fields whose `showWhen()` passes for `$data` |
+
+#### List data (DataTables JSON)
+
+A `GET` to the list URL that accepts JSON (and is not an API route) returns the
+table rows instead of the page. It reads the standard DataTables server-side
+parameters, and the query string's filters still apply.
+
+| Parameter | Meaning |
+|---|---|
+| `start`, `length` | Offset and page size |
+| `search[value]` | Global search: `LIKE %term%` on each column's attribute (the part of the column value before the first `.`) |
+| `order[0][column]` | Index of the column to sort by. It counts the `#` column when the row counter is on. Out-of-range values sort by `created_at desc` |
+| `order[0][dir]` | `asc` or `desc`; anything else is treated as `desc` |
+| `draw` | Echoed back |
+
+`setOrderBy()` overrides the requested sort.
+
+```json
+{
+  "data": [[1, "Apple", "<span class=\"badge\">new</span>", "<form …>…</form>"]],
+  "recordsTotal": 42,
+  "recordsFiltered": 3,
+  "draw": "1"
+}
+```
+
+Each row is `[#, …column values, actions cell]`, without the `#` when the row
+counter is off. The actions cell shows every permitted action as a button when
+the page has fewer than 5 rows; otherwise the first three are buttons and the
+rest go into a dropdown. Its markup comes from the `kamva-crud::actions` view
+(see [docs/actions.md](docs/actions.md)).
+
+> **Closure columns and search/sort.** A column whose value is a Closure has no
+> database attribute, so the global search and sorting use the column name
+> `_id`. That works on MongoDB models; on MySQL/PostgreSQL it makes the query
+> fail. For lists with Closure columns on an SQL database, turn off the
+> DataTables search box (`searching: false`), mark those columns
+> `orderable: false`, and use `addSearchField()` for searching.
 
 ---
 
@@ -475,6 +551,15 @@ $this->addFieldFilter(
     fn($request, &$rows) => $rows->where('status', $request->get('status')),
     'status'               // name of an already-added form field
 );
+// The filter gets a copy of that field, renamed to the input name
+// ('status' above), so the form's own field is not changed.
+
+// Filter with no UI, applied when the input is in the query string
+$this->addHiddenFilter('overdue', fn($request, $rows) => $rows->where('due_at', '<', now()));
+
+// Multi-column LIKE search on ?q= (escapes % and _ in the term).
+// Pass a field as the third argument to render a search box.
+$this->addSearchField(['name', 'email'], 'q');
 ```
 
 ### Action methods
@@ -486,6 +571,9 @@ $this->addAction(
     fn($row) => auth()->user()->can('edit', $row)  // optional ACL closure
 );
 ```
+
+To change the buttons' markup, publish the views and edit
+`actions.blade.php`; see [docs/actions.md](docs/actions.md).
 
 ### Import profile methods
 
@@ -613,7 +701,9 @@ PUT  /api/products/{id}     → update record
 DELETE /api/products/{id}   → delete record
 ```
 
-Pagination size is controlled by the `CRUD_PAGINATE_SIZE` environment variable.
+Pagination size comes from `config('kamva-crud.paginate_size')` (default 15),
+which reads the `CRUD_PAGINATE_SIZE` environment variable. Publish the config
+with `php artisan vendor:publish --tag=kamva-crud-config`.
 
 ### API list response
 
@@ -629,21 +719,39 @@ Pagination size is controlled by the `CRUD_PAGINATE_SIZE` environment variable.
 }
 ```
 
+Each item in `data` holds `id` plus one key per `addApiEntity()` (or per form
+field after `useFieldsAsApiEntities()`), with raw values:
+
+```json
+{ "id": 7, "name": "Apple", "price": 1200 }
+```
+
+An API entity named `id` replaces the model key. Two entities with the same
+title keep only the last one. `show()` returns one such record under `data`.
+
 ---
 
 ## Excel Export
 
-Append `?export=1` to the list URL. The controller exports up to 100,000
-records as an `.xlsx` file. File name format:
+Append `?export=1` to the list URL. The controller exports the filtered
+records as an `.xlsx` file, ordered by `created_at` ascending. File name
+format:
 
 ```
 export_<title>_<YYYY_MM_DD>.xlsx
 ```
 
-The date is formatted with `jdate()` (Jalali/Persian calendar). If your host
-application does not provide this helper, implement a `jdate()` global function
-or override the `exportData()` behavior by publishing and modifying the
-controller logic.
+- The first row holds the column titles. The columns are the
+  `addExportEntity()` columns if any are registered, otherwise the list columns
+  from `addColumn()`.
+- Each following row holds one record's raw values (`getValue($row, true)`) in
+  the same order. Columns that share a title each keep their own cell.
+- At most 100,000 rows are exported. A `page` query parameter on the URL
+  shifts that window, so export from a URL without one.
+
+The date is formatted with `jdate()` (Jalali/Persian calendar). The host
+application must provide this global helper; see
+[the `jdate()` helper](#3-jdate-helper) for a minimal stub.
 
 ---
 
@@ -751,6 +859,9 @@ src/
 ├── helpers.php
 ├── routes.php
 ├── Actions/Internal/BaseAction.php
+├── Columns/
+│   ├── ColumnSet.php              # Columns → header and value rows (list, API, export)
+│   └── Renderers.php              # badge / link / boolean / truncate / date helpers
 ├── Containers/
 │   ├── ActionContainer.php
 │   ├── ColumnContainer.php
@@ -767,9 +878,17 @@ src/
 │   ├── FieldContract.php
 │   ├── BaseField.php
 │   └── FieldSource.php
+├── Kanban/KanbanConfig.php
+├── Listing/DataTablesLoader.php   # List JSON: search, sort, paging, counts
+├── Timeline/
+│   ├── Timeline.php
+│   └── TimelineEvent.php
 └── views/
     ├── list.blade.php             # Stub — publish and implement
     ├── create.blade.php           # Stub — publish and implement
+    ├── actions.blade.php          # Implemented — row-actions cell
+    ├── detail.blade.php           # Implemented — detail (show) page
+    ├── kanban.blade.php           # Implemented — kanban board
     ├── observe.blade.php          # Implemented (jQuery AJAX)
     └── fields/read_only.blade.php # Stub — publish and implement
 ```
@@ -789,7 +908,7 @@ release. Each has a dedicated doc with the full API + examples.
 | Kanban view          | [docs/kanban.md](docs/kanban.md)                 | Drop-in kanban variant gated on `?view=kanban` (`enableKanban` + `KanbanConfig`). |
 | Stats                | [docs/stats.md](docs/stats.md)                   | Summary numbers in the list/kanban header (`addStat`). |
 | Hidden filters       | [docs/filters.md](docs/filters.md)               | `addHiddenFilter` (no UI), `addSearchField` (multi-column LIKE). |
-| Top actions          | [docs/actions.md](docs/actions.md)               | Page-header buttons (`addTopAction`). |
+| Top actions          | [docs/actions.md](docs/actions.md)               | Page-header buttons (`addTopAction`) and the publishable row-actions markup. |
 | Field flags          | [docs/fields.md](docs/fields.md)                 | `readOnly()` (no writes) and `showWhen()` (conditional visibility). |
 | Column renderers     | [docs/columns.md](docs/columns.md)               | `Renderers::badge / link / boolean / truncate / date` helpers. |
 
@@ -810,7 +929,7 @@ Two soft-behaviour changes worth flagging:
 composer test
 ```
 
-92 unit tests covering these features and their non-breaking
+111 unit tests covering these features and their non-breaking
 contracts. Run via orchestra/testbench against PHP 8.1+. See `tests/`.
 
 ---
