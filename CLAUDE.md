@@ -25,7 +25,7 @@ care of listing, creating, editing, deleting, exporting, and importing records.
 
 | Layer | Technology |
 |---|---|
-| Language | PHP >= 7.4 |
+| Language | PHP >= 8.1 |
 | Framework | Laravel >= 6.0 |
 | Excel I/O | `maatwebsite/excel` ^3.1 |
 | Front-end (views) | Blade stubs (consumers implement them) |
@@ -39,9 +39,8 @@ composer install
 vendor/bin/phpunit
 ```
 
-`composer.json` says PHP >= 7.4, but `Kanban/`, `Timeline/` and
-`Columns/Renderers.php` already use PHP 8.x syntax (`readonly`, `catch
-(\Throwable)` without a variable). Keep new core code 7.4-compatible.
+PHP 8.1 is the minimum (`Kanban/` and `Timeline/` use `readonly` promoted
+properties), so 8.1 syntax is fine anywhere in `src/`.
 
 ---
 

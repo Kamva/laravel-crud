@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No breaking changes. Public method signatures and the markup and JSON the
-list view receives are unchanged, except for the fixes below.
+Public method signatures and the markup and JSON the list view receives are
+unchanged, except for the fixes below.
+
+### ⚠️ Breaking changes
+
+- **PHP 8.1 is now the minimum.** `composer.json` previously allowed PHP 7.4,
+  but the Kanban and Timeline classes (`readonly` promoted properties) and
+  `Columns\Renderers` (`catch` without a variable) already failed to parse on
+  anything older, so the constraint now says what the code needs. Apps on
+  PHP 7.4/8.0 that never loaded those classes will no longer be able to
+  install this version.
 
 ### Added
 
