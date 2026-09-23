@@ -38,9 +38,7 @@ class ProcessController extends Controller
         $controller->init();
 
 
-        $field = collect($controller->getForm()->getFields())->first(function ($formField) use ($field) {
-            return $formField->getName() == $field;
-        });
+        $field = $controller->getForm()->getField($field);
 
         if (empty($field)) {
             throw new KamvaCrudException("field not found");

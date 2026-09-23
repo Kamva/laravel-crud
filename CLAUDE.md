@@ -31,8 +31,17 @@ care of listing, creating, editing, deleting, exporting, and importing records.
 | Front-end (views) | Blade stubs (consumers implement them) |
 | Date formatting | Jalali/Persian calendar (`jdate()` helper assumed in host app) |
 
-There is no `package.json`, no `artisan`, no migrations, no tests directory.
-This is a pure PHP Composer package.
+There is no `package.json`, no `artisan` and no migrations. This is a pure PHP
+Composer package. Tests use PHPUnit + Orchestra Testbench (SQLite in memory):
+
+```bash
+composer install
+vendor/bin/phpunit
+```
+
+`composer.json` says PHP >= 7.4, but `Kanban/`, `Timeline/` and
+`Columns/Renderers.php` already use PHP 8.x syntax (`readonly`, `catch
+(\Throwable)` without a variable). Keep new core code 7.4-compatible.
 
 ---
 
@@ -52,6 +61,9 @@ src/
 ├── routes.php                     # Single route: POST /kc-process/observe
 ├── Actions/
 │   └── Internal/BaseAction.php    # Base class for custom row actions
+├── Columns/
+│   ├── ColumnSet.php              # Ordered columns → header/value rows (API, export, list)
+│   └── Renderers.php              # Closure helpers for addColumn(): badge, link, date…
 ├── Containers/
 │   ├── ActionContainer.php        # Row action config (route, ACL, render)
 │   ├── ColumnContainer.php        # List column config + value resolver
@@ -69,12 +81,22 @@ src/
 │       ├── FieldContract.php      # Interface every field type must satisfy
 │       ├── BaseField.php          # Abstract implementation of FieldContract
 │       └── FieldSource.php        # Resolves model/builder → key-value options
+├── Kanban/KanbanConfig.php        # enableKanban() config + bucketing
+├── Listing/
+│   └── DataTablesLoader.php       # DataTables JSON: search, order, paging, counts
+├── Timeline/                      # addTimelineSource() → merged activity feed
 └── views/
     ├── list.blade.php             # Stub: variables $title,$cols,$createRoute…
     ├── create.blade.php           # Stub: variables $title,$form,$data
+    ├── actions.blade.php          # Row-actions cell (complete, publishable)
+    ├── detail.blade.php           # Show page for sections/sidebars/timeline
+    ├── kanban.blade.php           # Kanban board
     ├── observe.blade.php          # jQuery AJAX for field observers (complete)
     └── fields/
         └── read_only.blade.php    # Stub: variables $field,$data
+config/kamva-crud.php              # paginate_size (CRUD_PAGINATE_SIZE)
+tests/                             # PHPUnit + Testbench; Stubs/ holds a test field
+docs/                              # Per-feature guides (actions, columns, kanban…)
 ```
 
 ---
@@ -109,7 +131,7 @@ class ProductController extends CRUDController
 ### 2. Dual Web / API mode
 
 `Service::isApi()` returns `true` when:
-- The request path starts with `api`
+- The request path is `api` or starts with `api/`
 - The route is `kamva-crud.process`
 
 In API mode `index()` returns paginated JSON. In web mode it returns a Blade
@@ -180,9 +202,9 @@ $this->addAction(EditAction::class, 'products.edit', fn($row) => true);
 
 ### 9. Views
 
-Views live in `src/views/` under the `kamva-crud::` namespace. Three of the
-four are stubs (`// Implement Me !`). Consumers publish them and implement the
-UI:
+Views live in `src/views/` under the `kamva-crud::` namespace. `list`,
+`create` and `fields/read_only` are stubs (`// Implement Me !`). Consumers
+publish them and implement the UI:
 
 ```bash
 php artisan vendor:publish --provider="Kamva\\Crud\\KamvaCRUDServiceProvider"
@@ -191,13 +213,17 @@ php artisan vendor:publish --provider="Kamva\\Crud\\KamvaCRUDServiceProvider"
 The observe view (`kamva-crud::observe`) is fully implemented and uses jQuery +
 Select2 to handle dynamic field updates.
 
+`kamva-crud::actions` renders the row-actions cell of the list JSON. Its
+output must stay byte-identical unless a change is announced as breaking:
+whitespace between the inline-block forms is visible.
+
 ---
 
 ## Environment Variables
 
 | Variable | Used in | Purpose |
 |---|---|---|
-| `CRUD_PAGINATE_SIZE` | `CRUDController::handleApiResponse()` | Records per page for API pagination |
+| `CRUD_PAGINATE_SIZE` | `config/kamva-crud.php` → `CRUDController::handleApiResponse()` | Records per page for API pagination |
 
 ---
 
@@ -248,7 +274,9 @@ KamvaCrud::addColumnType('badge', function ($data, $col, $params, $raw) {
 ## Architectural Notes
 
 - **No migrations / no database tables** — this is a UI/controller layer only.
-- **No tests** — the package ships without a test suite.
+- **Tests** — run `vendor/bin/phpunit`. Before refactoring, add a
+  characterization test that pins the current output (see
+  `RowActionsRenderTest`, `DataTablesOutputTest`).
 - **Persian text** — user-facing messages (success/error flash, UI strings) are
   in Farsi (Persian). Do not translate them unless asked.
 - **`jdate()`** — the export filename uses a jalali date helper; this must be

@@ -46,6 +46,16 @@ for the exact arguments, which typically include access-control closures.
 - `ChangeStatusAction` — change a status attribute
 - `CustomAction` — anything else
 
+### Customising the row-actions markup
+
+The actions cell is rendered by the `kamva-crud::actions` view. The first three
+permitted actions are passed as `$inlineActions` and the rest as
+`$groupedActions` (shown in a dropdown); `$row` is the record. To change the
+markup, publish the package views and edit
+`resources/views/vendor/kamva-crud/actions.blade.php`. Values are output
+unescaped, and whitespace between elements shows up as gaps between the
+inline buttons.
+
 ## Top actions
 
 For buttons that live in the page header rather than per-row, use

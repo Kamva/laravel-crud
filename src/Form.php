@@ -83,6 +83,17 @@ class Form
     }
 
     /**
+     * Find a field by name.
+     *
+     * @param string $name
+     * @return FieldContainer|null
+     */
+    public function getField($name)
+    {
+        return collect($this->fields)->first(fn ($field) => $field->getName() == $name);
+    }
+
+    /**
      * Return only the fields that should be visible for a given model
      * instance, evaluated via each field's {@see \Kamva\Crud\Fields\Internal\BaseField::showWhen()}
      * predicate. When `$model` is null (create form), all fields are

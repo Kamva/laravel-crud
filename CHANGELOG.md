@@ -5,6 +5,43 @@ All notable changes to `kamva/laravel-crud` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+No breaking changes. Public method signatures and the markup and JSON the
+list view receives are unchanged, except for the fixes below.
+
+### Added
+
+- `Form::getField($name)` returns a field's `FieldContainer` by name, or
+  `null`.
+- The row-actions cell is now rendered by the publishable
+  `kamva-crud::actions` view instead of HTML strings inside
+  `CRUDController::getActionFieldForRow()`. The default view produces exactly
+  the same markup. Apps that already published the views fall back to the
+  package copy until they publish again.
+
+### Fixed
+
+- **Excel export header row.** When no `addExportEntity()` was registered, the
+  first row of the `.xlsx` export was empty instead of holding the list column
+  titles. The header row now always matches the exported columns.
+- **Excel export with duplicate column titles.** Two columns with the same
+  title collapsed into one value per row, which shifted every later value
+  under the wrong header. Each column now keeps its own cell.
+- **`addFieldFilter()` threw a `TypeError`** on every call (it passed a
+  `FieldContainer` where a `FieldContract` was expected). It now attaches the
+  named form field to the filter.
+
+### Internal
+
+- Row serialization for the API, the export and the list view goes through
+  one `Kamva\Crud\Columns\ColumnSet` class.
+- The DataTables search/order/paging/count code moved from `CRUDController`
+  into `Kamva\Crud\Listing\DataTablesLoader`. A subclass override of
+  `getActionFieldForRow()` is still used for the actions cell.
+- The three copies of the field-by-name lookup (`ProcessController`,
+  `ColumnContainer`, `addFieldFilter()`) now use `Form::getField()`.
+
 ## [1.0.0] - 2026-05-29
 
 First tagged release. Establishes the SemVer baseline for the package. This
