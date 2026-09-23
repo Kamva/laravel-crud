@@ -74,9 +74,7 @@ class ColumnContainer
 
     public function field($data, $fieldName, $parameters, $raw)
     {
-        $field = collect(KamvaCrud::get('class')->getForm()->getFields())->filter(function ($field) use ($fieldName) {
-            return $field->getName() == $fieldName;
-        })->first();
+        $field = KamvaCrud::get('class')->getForm()->getField($fieldName);
 
         if (empty($field)) {
             return null;

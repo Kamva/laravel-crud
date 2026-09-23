@@ -42,6 +42,18 @@ class OrderInputTest extends TestCase
         $this->assertCount(2, $response['data']);
     }
 
+    public function test_invalid_order_direction_falls_back_to_desc(): void
+    {
+        $response = $this->loaderRequest(['column' => 1, 'dir' => 'sideways']);
+        $this->assertSame(['b', 'a'], array_column($response['data'], 1));
+    }
+
+    public function test_order_direction_is_case_insensitive(): void
+    {
+        $response = $this->loaderRequest(['column' => 1, 'dir' => 'ASC']);
+        $this->assertSame(['a', 'b'], array_column($response['data'], 1));
+    }
+
     private function loaderRequest(array $order): array
     {
         $form = $this->app->make(Form::class);

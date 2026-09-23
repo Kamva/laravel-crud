@@ -9,6 +9,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Kamva\Crud\Actions\Internal\BaseAction;
+use Kamva\Crud\Columns\ColumnSet;
 use Kamva\Crud\Containers\ActionContainer;
 use Kamva\Crud\Containers\ColumnContainer;
 use Kamva\Crud\Containers\FieldContainer;
@@ -17,6 +18,7 @@ use Kamva\Crud\Containers\ImportProfileContainer;
 use Kamva\Crud\Exceptions\FieldValidationException;
 use Kamva\Crud\Exceptions\KamvaCrudException;
 use Kamva\Crud\Fields\Internal\FieldContract;
+use Kamva\Crud\Listing\DataTablesLoader;
 use Closure;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -133,46 +135,8 @@ class CRUDController extends Controller
 
     private function getApiSingleRecord($row)
     {
-        $data                       = [];
-        $data['id']                 = $row->id;
-
-        foreach ($this->apiEntities as $col) {
-            $data[$col->getName()]   = $col->getValue($row, true);
-        }
-
-        return $data;
-    }
-
-    private function getApiDataCollection($rows)
-    {
-        $response   = [];
-        foreach ($rows->items() as $row) {
-            $response[] = $this->getApiSingleRecord($row);
-        }
-
-        return collect($response);
-    }
-
-    private function getExportSingleRecord($row)
-    {
-        $data   = [];
-        $cols   = empty($this->exportCols) ? $this->cols : $this->exportCols;
-
-        foreach ($cols as $col) {
-            $data[$col->getName()]   = $col->getValue($row, true);
-        }
-
-        return $data;
-    }
-
-    private function getExportDataCollection($rows)
-    {
-        $response   = [];
-        foreach ($rows->items() as $row) {
-            $response[] = $this->getExportSingleRecord($row);
-        }
-
-        return collect($response);
+        // array_replace (not +) so an API entity named 'id' still overrides the key, as before.
+        return array_replace(['id' => $row->id], (new ColumnSet($this->apiEntities))->keyedValues($row, true));
     }
 
     private function createApiResponseFromData($rows)
@@ -200,27 +164,19 @@ class CRUDController extends Controller
         }
 
         $rows   = $rows->paginate($perPage);
-        $rows->setCollection($this->getApiDataCollection($rows));
+        $rows->setCollection(collect($rows->items())->map(fn ($row) => $this->getApiSingleRecord($row)));
 
         return KamvaCrud::apiResponse($this->createApiResponseFromData($rows));
     }
 
     private function exportData($rows)
     {
-        $rows   = $rows->paginate(100000);
-        $rows->setCollection($this->getExportDataCollection($rows));
+        // Export entities replace the list columns when any are registered.
+        $columns    = new ColumnSet(empty($this->exportCols) ? $this->cols : $this->exportCols);
+        $data       = [$columns->headers()];
 
-        $data       = [];
-        $headers    = [];
-
-        /** @var ColumnContainer $col */
-        foreach ($this->exportCols ?? $this->cols as $col) {
-            $headers[] = $col->getName();
-        }
-        $data[] = $headers;
-
-        foreach ($rows->items() as $item) {
-            $data[] = array_values($item);
+        foreach ($rows->paginate(100000)->items() as $row) {
+            $data[] = $columns->values($row, true);
         }
 
         return Excel::download(new CRUDExport($data), "export" . "_" . $this->title .'_' . jdate()->format("Y_m_d"). '.xlsx');
@@ -228,146 +184,13 @@ class CRUDController extends Controller
 
     public function getActionFieldForRow($row, $avoidGroup = false)
     {
-        $colValue   = '';
         $actions = collect($this->actions)->filter(fn ($action) => $action->hasAccess($row));
 
-        $firstActions = $avoidGroup ? $actions : $actions->take(3);
-        $firstActions->each(function ($action) use ($row, &$colValue) {
-            $colValue .= '<form data-toggle="tooltip" data-placement="top"  class="action-selector '. $action->getOption('class') . ($action->getOption('ask') ? 'ask' : '') .'" title="'. $action->getCaption() .'" style="margin: 0 5px;display: inline-block" method="'. ($action->isMethod('get') ? 'get' : 'post') .'" action="'.$action->url($row).'">';
-            $colValue .= $action->isMethod('get') ? '' : method_field($action->getMethod());
-            $colValue .= $action->isMethod('get') ? '' : csrf_field();
-            $colValue .= $action->getRender($row);
-            $colValue .= '</form>';
-        });
-
-        $extraActions = $avoidGroup ? collect([]) : $actions->skip(3);
-        if ($extraActions->isEmpty()) {
-            return $colValue;
-        }
-
-        $colValue .= '<div class="btn-group"><a data-toggle="dropdown"><i class="feather icon-more-vertical"></i></a><ul class="dropdown-menu" role="menu">';
-
-        $extraActions->each(function ($action) use ($row, &$colValue) {
-            $colValue .= '<li >';
-            $colValue .= '<form class="dropdown-item action-selector '. $action->getOption('class') . ($action->getOption('ask') ? 'ask' : '') .'" method="'. ($action->isMethod('get') ? 'get' : 'post') .'" action="'.$action->url($row).'">';
-            $colValue .= $action->isMethod('get') ? '' : method_field($action->getMethod());
-            $colValue .= $action->isMethod('get') ? '' : csrf_field();
-            $colValue .= $action->getRender($row) .'<span style="margin-right: 1rem">'.$action->getCaption().'</span>';
-            $colValue .= '</form>';
-            $colValue .='</li>';
-        });
-
-        $colValue .= '</ul></div>';
-
-        return $colValue;
-    }
-
-    private function getJsonLoaderRecords($start, $rows)
-    {
-        $out            = [];
-        $i              = $start + 1;
-
-        foreach ($rows as $row) {
-            $value      = [];
-
-            if ($this->rowCounter) {
-                $value[] = $i++;
-            }
-
-            foreach ($this->cols as $col) {
-                $value[] = $col->getValue($row);
-            }
-
-            $value[]    = $this->getActionFieldForRow($row, $rows->count() < 5);
-            $out[]      = $value;
-        }
-
-        return $out;
-    }
-
-    private function getRowsForJsonLoader($rows, $start, $length)
-    {
-        return $rows->skip($start)->take($length);
-    }
-
-    private function searchInJsonLoader($rows, $text)
-    {
-        if (empty($text)) {
-            return $rows;
-        }
-
-        return $rows->where(function ($q) use ($text) {
-            foreach ($this->cols as $item) {
-                $q->orWhere($item->guessColNameInDB(), "like", "%" . $text . "%");
-            }
-        });
-    }
-
-    private function orderRowsInJsonLoader($rows, $by, $dir)
-    {
-        if(!empty($this->getPreference('orderByCol'))){
-            $rows->orderBy($this->getPreference('orderByCol'), $this->getPreference('orderByOrder'));
-
-            return $rows;
-        }
-
-        // DataTables sends a 0-based column index across all rendered columns.
-        // The leading row-counter column occupies index 0 only when it's
-        // enabled, so the offset into $this->cols depends on rowCounter:
-        //   counter on  → data columns start at DataTables index 1 (offset 1)
-        //   counter off → data columns start at DataTables index 0 (offset 0)
-        // $by is untrusted request input — the (int) cast guards non-numeric
-        // values, and the bound check covers out-of-range indexes.
-        $offset = $this->rowCounter ? 1 : 0;
-        $index  = (int) $by - $offset;
-
-        if ($index < 0 || $index >= count($this->cols)) {
-            return $rows->orderBy("created_at", "desc");
-        }
-
-        $colName = $this->cols[$index]->guessColNameInDB();
-
-        if (!empty($colName)) {
-            return $rows->orderBy($colName, $dir);
-        }
-
-        return $rows;
-    }
-
-    private function handleJsonLoaderResponse(Request $request, $rows)
-    {
-        $start          = (int) $request->input('start');
-        $length         = (int) $request->input('length');
-        $search         = $request->input('search')['value'] ?? null;
-
-        $order          = $request->input('order')[0]['column'] ?? null;
-        $orderDir       = $request->input('order')[0]['dir'] ?? 'desc';
-
-        $initialRows    = clone $rows;
-
-        $rows           = $this->searchInJsonLoader($rows, $search);
-
-        $rows           = $this->orderRowsInJsonLoader($rows, $order, $orderDir);
-
-        $filteredRows   = clone $rows;
-
-        $rows           = $this->getRowsForJsonLoader($rows, $start, $length);
-
-
-        $rows           = $rows->get();
-        return [
-            "data"              => $this->getJsonLoaderRecords($start, $rows),
-            // Count via getCountForPagination() rather than ->get() + count():
-            // the latter hydrates every matching row into Eloquent models just
-            // to count them, on every DataTables draw — a memory/latency
-            // problem and a DoS vector on large tables. getCountForPagination()
-            // is the same routine the paginator uses, so it preserves
-            // distinct()/groupBy() semantics (wrapping in a subquery) where a
-            // bare count() would not.
-            "recordsTotal"      => $initialRows->toBase()->getCountForPagination(),
-            "recordsFiltered"   => $filteredRows->toBase()->getCountForPagination(),
-            "draw"              => $request->input('draw'),
-        ];
+        return view('kamva-crud::actions', [
+            'row'            => $row,
+            'inlineActions'  => $avoidGroup ? $actions : $actions->take(3),
+            'groupedActions' => $avoidGroup ? collect([]) : $actions->skip(3),
+        ])->render();
     }
 
     public function checkModel($id, $assign = true)
@@ -407,6 +230,17 @@ class CRUDController extends Controller
         }
 
         return $this->handleFailedResponse($exception->getMessage(), $code);
+    }
+
+    private function dataTablesLoader(): DataTablesLoader
+    {
+        return new DataTablesLoader(
+            new ColumnSet($this->cols),
+            $this->rowCounter,
+            fn ($row, $avoidGroup) => $this->getActionFieldForRow($row, $avoidGroup),
+            $this->getPreference('orderByCol'),
+            $this->getPreference('orderByOrder')
+        );
     }
 
     private function applyFilters(Request $request, Builder &$rows)
@@ -458,7 +292,7 @@ class CRUDController extends Controller
             return $this->handleApiResponse($rows);
         } else {
             if ($request->wantsJson()) {
-                return $this->handleJsonLoaderResponse($request, $rows);
+                return $this->dataTablesLoader()->respond($request, $rows);
             }
 
             $filters    = collect($this->filters)->filter(fn ($f) => $f->hasField())->values()->all();
@@ -864,14 +698,18 @@ class CRUDController extends Controller
 
     public function addFieldFilter($input, \Closure $callback, $fieldName)
     {
-        $field = collect($this->form->getFields())->first(function ($field) use ($fieldName) {
-            return $field->getName() == $fieldName;
-        });
+        $field = $this->form->getField($fieldName);
         if (empty($field)) {
             throw new KamvaCrudException("invalid Field Name [{$fieldName}]");
         }
 
-        return $this->addFilter($input, $callback, $field);
+        // The filter bar needs its own copy of the form field, named after the
+        // filter input: applyFilters() reads $input from the request, and the
+        // form's instance must not be renamed under the create/edit form.
+        $filterField = clone $field->field();
+        $filterField->setName($input);
+
+        return $this->addFilter($input, $callback, $filterField);
     }
 
     /**
