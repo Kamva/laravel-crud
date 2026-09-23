@@ -76,9 +76,15 @@ $this->addFieldFilter('status', function ($req, $q) {
 }, fieldName: 'status');
 ```
 
-The third arg is the **field name** (not the input name) — it looks up
-the matching field from the form and uses it as the filter's render
-widget.
+The third arg is the **field name** (not the input name). The filter gets
+a copy of that form field, renamed to the input name (the first arg), so the
+widget submits the value the callback reads. The form's own field is not
+changed. An unknown field name throws `KamvaCrudException`.
+
+The copy keeps the field's caption, options and default value. If the form
+field has a default value (`setValue()`), the filter widget shows that value
+instead of the submitted one; register a separate field with `addFilter()`
+when that is not wanted.
 
 ## Hidden filters in views
 
