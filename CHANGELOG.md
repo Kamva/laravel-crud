@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Public method signatures and the markup and JSON the list view receives are
-unchanged, except for the fixes below.
+## [2.0.0] - 2026-09-23
+
+Major version because PHP 8.1 is now required (see **Breaking changes**).
+Otherwise public method signatures and the markup and JSON the list view
+receives are unchanged, except for the fixes below. Changes shipped in #24
+(code) and #25 (documentation).
 
 ### ⚠️ Breaking changes
 
@@ -150,4 +154,6 @@ review them before upgrading.
   hydrating every matching row into models on each draw — preserving
   `distinct()` / `groupBy()` semantics without the memory/latency cost.
 
+[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Kamva/laravel-crud/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/Kamva/laravel-crud/releases/tag/v1.0.0
