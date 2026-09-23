@@ -106,8 +106,8 @@ final class DataTablesLoader
         }
 
         return $rows->where(function ($q) use ($text) {
-            for ($i = 0; $i < $this->columns->count(); $i++) {
-                $q->orWhere($this->columns->at($i)->guessColNameInDB(), "like", "%" . $text . "%");
+            foreach ($this->columns as $col) {
+                $q->orWhere($col->guessColNameInDB(), "like", "%" . $text . "%");
             }
         });
     }
@@ -135,6 +135,10 @@ final class DataTablesLoader
         }
 
         $colName = $this->columns->at($index)->guessColNameInDB();
+
+        // $dir is untrusted too: Builder::orderBy() throws on anything but
+        // asc/desc, so fall back to the default direction instead of a 500.
+        $dir = is_string($dir) && strtolower($dir) === 'asc' ? 'asc' : 'desc';
 
         if (!empty($colName)) {
             return $rows->orderBy($colName, $dir);

@@ -2,7 +2,10 @@
 
 namespace Kamva\Crud\Columns;
 
+use ArrayIterator;
+use IteratorAggregate;
 use Kamva\Crud\Containers\ColumnContainer;
+use Traversable;
 
 /**
  * An ordered list of {@see ColumnContainer}s and the one place that turns a
@@ -10,7 +13,7 @@ use Kamva\Crud\Containers\ColumnContainer;
  * and the Excel export all serialize through here, so a header row and its
  * data rows are always built from the same columns in the same order.
  */
-final class ColumnSet
+final class ColumnSet implements IteratorAggregate
 {
     /** @var ColumnContainer[] */
     private array $columns;
@@ -21,6 +24,14 @@ final class ColumnSet
     public function __construct(array $columns)
     {
         $this->columns = array_values($columns);
+    }
+
+    /**
+     * @return Traversable<int, ColumnContainer>
+     */
+    public function getIterator(): Traversable
+    {
+        return new ArrayIterator($this->columns);
     }
 
     public function count(): int

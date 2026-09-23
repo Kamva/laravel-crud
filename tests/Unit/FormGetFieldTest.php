@@ -63,6 +63,27 @@ class FormGetFieldTest extends TestCase
         $this->assertSame(1, $controller->index($request)['recordsFiltered']);
     }
 
+    public function test_add_field_filter_uses_a_copy_named_after_the_filter_input(): void
+    {
+        $controller = new class($this->app->make(Form::class)) extends CRUDController {
+            public $filter;
+
+            public function setup(): void
+            {
+                $this->setModel(GfWidget::class);
+                $this->addField(StubTextField::class, 'Status', 'status');
+                $this->filter = $this->addFieldFilter('status_filter', fn () => null, 'status');
+            }
+        };
+        $controller->init();
+
+        // The widget submits under the filter input, which is what
+        // applyFilters() reads; the form's own field keeps its name.
+        $this->assertSame('status_filter', $controller->filter->getField()->getName());
+        $this->assertSame('Status', $controller->filter->getField()->getCaption());
+        $this->assertSame('status', $controller->getForm()->getField('status')->field()->getName());
+    }
+
     public function test_add_field_filter_rejects_unknown_field(): void
     {
         $controller = new class($this->app->make(Form::class)) extends CRUDController {

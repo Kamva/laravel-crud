@@ -38,8 +38,11 @@ unchanged, except for the fixes below.
   title collapsed into one value per row, which shifted every later value
   under the wrong header. Each column now keeps its own cell.
 - **`addFieldFilter()` threw a `TypeError`** on every call (it passed a
-  `FieldContainer` where a `FieldContract` was expected). It now attaches the
-  named form field to the filter.
+  `FieldContainer` where a `FieldContract` was expected). It now attaches a
+  copy of the named form field, renamed to the filter input so the widget
+  submits the value `applyFilters()` reads.
+- **Invalid DataTables sort direction.** An `order[0][dir]` other than
+  `asc`/`desc` made `orderBy()` throw (HTTP 500). It now falls back to `desc`.
 
 ### Internal
 

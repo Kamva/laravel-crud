@@ -186,11 +186,11 @@ class CRUDController extends Controller
     {
         $actions = collect($this->actions)->filter(fn ($action) => $action->hasAccess($row));
 
-        return trim(view('kamva-crud::actions', [
+        return view('kamva-crud::actions', [
             'row'            => $row,
             'inlineActions'  => $avoidGroup ? $actions : $actions->take(3),
             'groupedActions' => $avoidGroup ? collect([]) : $actions->skip(3),
-        ])->render());
+        ])->render();
     }
 
     public function checkModel($id, $assign = true)
@@ -703,7 +703,13 @@ class CRUDController extends Controller
             throw new KamvaCrudException("invalid Field Name [{$fieldName}]");
         }
 
-        return $this->addFilter($input, $callback, $field->field());
+        // The filter bar needs its own copy of the form field, named after the
+        // filter input: applyFilters() reads $input from the request, and the
+        // form's instance must not be renamed under the create/edit form.
+        $filterField = clone $field->field();
+        $filterField->setName($input);
+
+        return $this->addFilter($input, $callback, $filterField);
     }
 
     /**
