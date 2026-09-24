@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No breaking changes and nothing to change in your app. See
+## [2.1.0] - 2026-09-24
+
+No breaking changes and nothing to change in your app. Shipped in #27. See
 [docs/performance.md](docs/performance.md) for details and measurements.
 
 ### Performance
@@ -195,6 +197,7 @@ review them before upgrading.
   hydrating every matching row into models on each draw — preserving
   `distinct()` / `groupBy()` semantics without the memory/latency cost.
 
-[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Kamva/laravel-crud/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Kamva/laravel-crud/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/Kamva/laravel-crud/releases/tag/v1.0.0
