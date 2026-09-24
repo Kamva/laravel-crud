@@ -177,7 +177,8 @@ final class DataTablesLoader
 
     /**
      * DataTables indexes of the data columns that can't be sorted (they have
-     * no database column of their own), for the list view's
+     * no database column of their own, or setOrderBy() fixes the order), for
+     * the list view's
      * `columnDefs: [{orderable: false, targets: …}]`. Sorting by one orders
      * by the primary key, which the header arrow would misrepresent.
      *
@@ -189,7 +190,8 @@ final class DataTablesLoader
         $out    = [];
 
         foreach ($this->columns as $index => $col) {
-            if (empty($this->dbColumn($col, $model))) {
+            // setOrderBy() fixes the order: no header changes it.
+            if (!empty($this->fixedOrderCol) || empty($this->dbColumn($col, $model))) {
                 $out[] = $index + $offset;
             }
         }

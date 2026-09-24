@@ -99,6 +99,23 @@ class LongLivedControllerTest extends TestCase
         $this->assertSame($acl, KamvaCrud::get('default_acl_method'));
     }
 
+    public function test_a_second_controller_in_the_same_request_keeps_the_edited_record(): void
+    {
+        $this->app->make(LlController::class)->init();
+        KamvaCrud::set('model', 5);
+
+        // e.g. a detail section or helper that builds another controller.
+        $this->app->make(LlController::class)->init();
+
+        $this->assertSame(5, KamvaCrud::get('model'));
+
+        // A new request starts clean.
+        $this->app->instance('request', \Illuminate\Http\Request::create('/ll-items'));
+        $this->app->make(LlController::class)->init();
+
+        $this->assertNull(KamvaCrud::get('model'));
+    }
+
     public function test_state_set_before_the_first_setup_survives_repeated_init(): void
     {
         $controller = new class($this->app->make(Form::class)) extends CRUDController {

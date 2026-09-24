@@ -12,6 +12,9 @@ class Service
     private $data               = [];
     private $extensionManager;
 
+    /** The request flushRequestState() last ran for. */
+    private ?\WeakReference $request = null;
+
     public function __construct()
     {
         $this->extensionManager = new ExtensionManager();
@@ -96,11 +99,22 @@ class Service
      * the record being edited ('model') and the per-controller option
      * caches of source-backed fields. Settings made at boot (default ACL
      * method, dark mode, column types…) are kept. Called by
-     * CRUDController::init(), so a long-lived worker doesn't serve one
-     * request's state to the next.
+     * CRUDController::init() with the current request, so a long-lived
+     * worker doesn't serve one request's state to the next; given a request
+     * already flushed for, it does nothing.
      */
-    public function flushRequestState(): void
+    public function flushRequestState(?object $request = null): void
     {
+        // Once per request: a second controller initialised while handling
+        // the same request must not drop the record the first one is editing.
+        if ($request !== null) {
+            if ($this->request?->get() === $request) {
+                return;
+            }
+
+            $this->request = \WeakReference::create($request);
+        }
+
         foreach (array_keys($this->data) as $key) {
             if ($key === 'class' || $key === 'model' || str_starts_with($key, 'source_cache_')) {
                 unset($this->data[$key]);

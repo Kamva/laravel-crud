@@ -21,8 +21,9 @@ list view you implement.
   [docs/actions.md](docs/actions.md#access-control).
 - **`$unsortableColumns` list view variable** (#30): the DataTables indexes
   of columns with no database column of their own (Closure, relation and
-  accessor columns). Pass them to `columnDefs` as `orderable: false`; see the
-  README's list view example.
+  accessor columns), or of every column when `setOrderBy()` fixes the order.
+  Pass them to `columnDefs` as `orderable: false`; see the README's list view
+  example.
 - **`KamvaCrud::flushRequestState()`** (#33), called by
   `CRUDController::init()`.
 
@@ -35,8 +36,9 @@ list view you implement.
   `'#N/A'` into error cells. Now strings are text, except plain decimal
   numbers Excel holds exactly (`'42'`, `'-3.50'`), which stay numeric so sums
   over DECIMAL columns keep working. Integers over 15 digits are written as
-  text. If a spreadsheet relied on other numeric-looking strings becoming
-  numbers, those cells are now text.
+  text. Other values still go through the configured binder
+  (`excel.value_binder.default`). If a spreadsheet relied on other
+  numeric-looking strings becoming numbers, those cells are now text.
 
 ### Fixed
 
@@ -47,7 +49,8 @@ list view you implement.
   definition from its state before the first `setup()` (state set in a
   subclass constructor is kept). Select options, the edited record and the
   active controller are no longer kept in the `kamva-crud` singleton between
-  requests. When a route's controller was replaced but the middleware it had
+  requests (they are cleared once per request, so a second controller
+  initialised during the same request keeps them). When a route's controller was replaced but the middleware it had
   gathered was kept, the next request returned a 500
   (`Application::newQuery does not exist`); the init middleware now
   initialises the controller handling the request.
@@ -56,8 +59,8 @@ list view you implement.
   (`'full_name'`) and column types on a relation (`'owner.badge'`) were still
   queried by name: a 500 on Postgres and MySQL. Names the model resolves
   itself are now checked against the table's real columns (listed once per
-  table per app instance; MongoDB keeps the name). Plain column names are
-  used as before, with no extra query.
+  table per app instance, matched case-sensitively on Postgres; MongoDB keeps
+  the name). Plain column names are used as before, with no extra query.
 
 ### Internal
 

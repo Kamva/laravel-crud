@@ -6,7 +6,8 @@ use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
-use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
+use PhpOffice\PhpSpreadsheet\Cell\IValueBinder;
+use PhpOffice\PhpSpreadsheet\Shared\StringHelper;
 
 /**
  * The export mirrors what the list shows, so text stays text. PhpSpreadsheet's
@@ -25,6 +26,9 @@ class CRUDExport implements FromArray, WithCustomValueBinder
 
     private $data;
 
+    /** The app's configured binder (excel.value_binder.default), for everything else. */
+    private ?IValueBinder $fallback = null;
+
     public function __construct($data)
     {
         $this->data = $data;
@@ -38,12 +42,14 @@ class CRUDExport implements FromArray, WithCustomValueBinder
     public function bindValue(Cell $cell, $value)
     {
         if ((is_string($value) && !$this->isPlainNumber($value)) || (is_int($value) && !$this->fitsExcel((string) $value))) {
-            $cell->setValueExplicit((string) $value, DataType::TYPE_STRING);
+            $cell->setValueExplicit(StringHelper::sanitizeUTF8((string) $value), DataType::TYPE_STRING);
 
             return true;
         }
 
-        return (new DefaultValueBinder())->bindValue($cell, $value);
+        $this->fallback ??= app(config('excel.value_binder.default', \Maatwebsite\Excel\DefaultValueBinder::class));
+
+        return $this->fallback->bindValue($cell, $value);
     }
 
     /** '42', '-3.50', '0.5'; not '+1', '007', '1e5', ' 1' or '1,000'. */
@@ -52,8 +58,11 @@ class CRUDExport implements FromArray, WithCustomValueBinder
         return preg_match('/^-?(0|[1-9]\d*)(\.\d+)?$/D', $value) === 1 && $this->fitsExcel($value);
     }
 
+    /** At most 15 significant digits: '12345678.00000000' has 8. */
     private function fitsExcel(string $number): bool
     {
-        return strlen(ltrim(str_replace(['-', '.'], '', $number), '0')) <= self::EXCEL_DIGITS;
+        [$integer, $fraction] = explode('.', ltrim($number, '-')) + [1 => ''];
+
+        return strlen(ltrim($integer . rtrim($fraction, '0'), '0')) <= self::EXCEL_DIGITS;
     }
 }

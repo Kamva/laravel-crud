@@ -1061,7 +1061,7 @@ class CRUDController extends Controller
             }
         }
 
-        KamvaCrud::flushRequestState();
+        KamvaCrud::flushRequestState(request());
 
         if (method_exists($this, 'setup')) {
             $this->setup();

@@ -35,6 +35,8 @@ class ExportCellTypesTest extends TestCase
             'decimal'     => ['12.50', 12.5, DataType::TYPE_NUMERIC],
             'negative'    => ['-3', -3, DataType::TYPE_NUMERIC],
             'zero point'  => ['0.5', 0.5, DataType::TYPE_NUMERIC],
+            'wide scale'  => ['12345678.00000000', 12345678.0, DataType::TYPE_NUMERIC],
+            'too precise' => ['1234567890.1234567', '1234567890.1234567', DataType::TYPE_STRING],
             'int'         => [42, 42, DataType::TYPE_NUMERIC],
             'float'       => [1.5, 1.5, DataType::TYPE_NUMERIC],
             'big int'     => [1234567890123456789, '1234567890123456789', DataType::TYPE_STRING],
@@ -50,6 +52,23 @@ class ExportCellTypesTest extends TestCase
             $this->assertSame($value, $cell->getValue(), $label);
             $this->assertSame($type, $cell->getDataType(), $label);
         }
+    }
+
+    public function test_invalid_utf8_is_sanitised(): void
+    {
+        $sheet = $this->export([['text'], [substr('سلام', 0, 3)]]);
+
+        $this->assertTrue(mb_check_encoding((string) $sheet->getCell('A2')->getValue(), 'UTF-8'));
+    }
+
+    public function test_the_configured_value_binder_handles_other_values(): void
+    {
+        config(['excel.value_binder.default' => ExportUpperBinder::class]);
+
+        $sheet = $this->export([['n', 'b'], [42, true]]);
+
+        $this->assertSame('bound:42', $sheet->getCell('A2')->getValue());
+        $this->assertSame('bound:1', $sheet->getCell('B2')->getValue());
     }
 
     public function test_empty_cells_stay_empty(): void
@@ -70,5 +89,15 @@ class ExportCellTypesTest extends TestCase
         } finally {
             @unlink($file);
         }
+    }
+}
+
+class ExportUpperBinder extends \PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder
+{
+    public function bindValue(\PhpOffice\PhpSpreadsheet\Cell\Cell $cell, $value)
+    {
+        $cell->setValueExplicit('bound:' . $value, DataType::TYPE_STRING);
+
+        return true;
     }
 }

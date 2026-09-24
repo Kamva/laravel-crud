@@ -195,6 +195,64 @@ class DataTablesColumnSqlTest extends TestCase
         $this->assertSame([1, 2, 3], $controller->index($request)->getData()['unsortableColumns']);
     }
 
+    public function test_fixed_order_makes_every_column_unsortable(): void
+    {
+        $controller = new class($this->app->make(Form::class)) extends CRUDController {
+            public function setup(): void
+            {
+                $this->setModel(DcsWidget::class);
+                $this->setOrderBy('id', 'desc');
+                $this->addColumn('Name', 'name');
+                $this->addColumn('Shout', fn ($row) => strtoupper($row->name));
+            }
+        };
+        $controller->init();
+
+        $request = Request::create('/dcs-widgets', 'GET');
+        $this->app->instance('request', $request);
+
+        $this->assertSame([1, 2], $controller->index($request)->getData()['unsortableColumns']);
+    }
+
+    public function test_column_names_match_case_as_the_driver_does(): void
+    {
+        DB::enableQueryLog();
+
+        // `Name` is resolved by the model (getNameAttribute), so it is checked
+        // against the table: SQLite and MySQL match `name` whatever the case,
+        // Postgres only matches the exact quoted name.
+        $response = $this->loaderRequest([
+            'search' => ['value' => 'ap'],
+            'order'  => [['column' => 0, 'dir' => 'asc']],
+        ], fn (CRUDController $c) => $c->addColumn('Name', 'Name'));
+
+        $queried = collect(DB::getQueryLog())->contains(fn ($q) => str_contains($q['query'], '"Name"'));
+
+        if (DB::getDriverName() === 'pgsql') {
+            $this->assertFalse($queried);
+            $this->assertSame([], $response['data']);
+        } else {
+            $this->assertTrue($queried);
+            $this->assertCount(2, $response['data']);
+        }
+    }
+
+    public function test_a_failed_schema_listing_is_tried_again(): void
+    {
+        config(['database.connections.dcs_later' => ['driver' => 'sqlite', 'database' => '/nonexistent/dir/db.sqlite', 'prefix' => '']]);
+        $model = (new DcsWidget())->setConnection('dcs_later');
+        $columns = $this->app->make(\Kamva\Crud\Listing\TableColumns::class);
+
+        $this->assertNull($columns->has($model, 'name'));
+
+        config(['database.connections.dcs_later.database' => ':memory:']);
+        DB::purge('dcs_later');
+        Schema::connection('dcs_later')->create('dcs_widgets', fn ($table) => $table->string('name'));
+
+        $this->assertTrue($columns->has($model, 'name'));
+        $this->assertFalse($columns->has($model, 'label'));
+    }
+
     private function loaderRequest(array $params, ?\Closure $columns = null): array
     {
         $controller = new class($this->app->make(Form::class)) extends CRUDController {
@@ -248,6 +306,11 @@ class DcsWidget extends Model
     public function owner()
     {
         return $this->belongsTo(DcsOwner::class, 'owner_id');
+    }
+
+    public function getNameAttribute($value)
+    {
+        return $value;
     }
 
     public function getLabelAttribute()

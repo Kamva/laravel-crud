@@ -29,12 +29,16 @@ final class TableColumns
     {
         $columns = $this->of($model);
 
-        return $columns === null ? null : isset($columns[strtolower($column)]);
+        if ($columns === null) {
+            return null;
+        }
+
+        return isset($columns[$this->caseInsensitive($model) ? strtolower($column) : $column]);
     }
 
     /**
-     * @return array<string, true>|null Lowercased column names (MySQL
-     *         compares them case-insensitively), or null when unknown.
+     * @return array<string, true>|null Column names (lowercased where the
+     *         driver compares them case-insensitively), or null when unknown.
      */
     private function of(Model $model): ?array
     {
@@ -52,13 +56,22 @@ final class TableColumns
         try {
             $listing = $connection->getSchemaBuilder()->getColumnListing($model->getTable());
         } catch (Throwable) {
-            $listing = [];
+            // Not cached: the next request tries again.
+            return null;
+        }
+
+        if ($this->caseInsensitive($model)) {
+            $listing = array_map('strtolower', $listing);
         }
 
         // No columns: a table the schema builder can't see (e.g. a view on
         // some drivers). Keep the name-based guess rather than drop them all.
-        return $this->tables[$key] = empty($listing)
-            ? null
-            : array_fill_keys(array_map('strtolower', $listing), true);
+        return $this->tables[$key] = empty($listing) ? null : array_fill_keys($listing, true);
+    }
+
+    /** Postgres matches quoted identifiers exactly; MySQL, SQLite and SQL Server don't. */
+    private function caseInsensitive(Model $model): bool
+    {
+        return $model->getConnection()->getDriverName() !== 'pgsql';
     }
 }
