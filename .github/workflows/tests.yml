@@ -1,0 +1,61 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }} / ${{ matrix.db }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 8.1 resolves to Laravel 10, where some fixtures in
+        # RelationPreloadTest use Laravel 11-only APIs (chaperone(),
+        # afterQuery()); 8.2+ resolves to Laravel 11.
+        php: ['8.2', '8.4']
+        db: [sqlite, pgsql]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_CONNECTION: ${{ matrix.db }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: testing
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, pdo_pgsql
+          coverage: none
+
+      # No lock file: resolve the newest dev dependencies the constraints
+      # allow. Composer 2.10+ refuses Laravel releases with security
+      # advisories, which is every release testbench ^7|^8|^9 accepts.
+      # The package doesn't pin Laravel for apps, so tests may use them.
+      - name: Install dependencies
+        run: composer update --no-interaction --no-progress --prefer-dist --no-security-blocking
+
+      - name: Run tests
+        run: vendor/bin/phpunit

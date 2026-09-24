@@ -42,9 +42,19 @@ class SearchFieldSafetyTest extends TestCase
     {
         $sql = $this->applySearch(['name'], 'x')->toSql();
 
-        // Identifier wrapped (sqlite/MySQL: "name" / `name`), not bare.
-        $this->assertMatchesRegularExpression('/lower\(["`]name["`]\)/i', $sql);
+        // Identifier wrapped (sqlite/MySQL: "name" / `name`; Postgres casts
+        // it to text), not bare.
+        $this->assertMatchesRegularExpression('/lower\((cast\()?["`]name["`]( as text\))?\)/i', $sql);
         $this->assertStringNotContainsString('LOWER(name)', $sql);
+    }
+
+    public function test_non_text_columns_can_be_searched(): void
+    {
+        // Postgres has no LOWER(integer); the column must be cast first.
+        $results = $this->applySearch(['name', 'id'], '2')->get();
+
+        $this->assertCount(1, $results);
+        $this->assertSame('banana', $results->first()->name);
     }
 
     public function test_value_stays_bound_not_interpolated(): void

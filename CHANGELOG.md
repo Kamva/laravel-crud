@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-24
+
+Postgres support release. No breaking changes for documented usage, but
+three behaviour changes are worth checking (see **Changed**). Shipped in #29.
+
+### Changed
+
+- **List search on Postgres now ignores case**, like MySQL and SQLite. It
+  was case-sensitive (`LIKE`); it now uses `ILIKE`.
+- **Sorting the list by a Closure or relation column orders by the primary
+  key.** On Postgres and MySQL this used to be an error; on SQLite rows came
+  back in no particular order. On MongoDB it still orders by `_id`, as before.
+- **`ColumnContainer::guessColNameInDB()` returns `null` for columns with no
+  database column of their own** (it returned `"_id"` for Closure columns),
+  and takes an optional `$model` to recognise relation columns. It is
+  undocumented and only used by the list search and sort; this matters only
+  if your code calls it on a column returned by `addColumn()`.
+
+### Fixed
+
+- **List search and sorting work on Postgres and MySQL.** Searching the list
+  table, or sorting it by a Closure column, queried a column named `_id`
+  (a MongoDB leftover), and relation columns such as `'owner.name'` queried a
+  column named after the relation. Both are errors on Postgres and MySQL.
+  Search now skips columns with no database column of their own (a list with
+  none matches no rows, as before), and sorting by one orders by the model's
+  primary key (`_id` on MongoDB, as before), qualified with the table name so
+  queries with joins stay unambiguous.
+- **`addSearchField()` works on non-text columns on Postgres.** It used
+  `LOWER(column)`, which Postgres only defines for text; the column is now
+  cast to text first. Other databases get the same SQL as before.
+
+### Internal
+
+- CI: a GitHub Actions workflow runs the tests on SQLite and Postgres 16,
+  with PHP 8.2 and 8.4 (Laravel 11). Tests run on Postgres locally with
+  `DB_CONNECTION=pgsql` (see the README).
+
 ## [2.1.0] - 2026-09-24
 
 No breaking changes and nothing to change in your app. Shipped in #27. See
@@ -197,7 +235,8 @@ review them before upgrading.
   hydrating every matching row into models on each draw — preserving
   `distinct()` / `groupBy()` semantics without the memory/latency cost.
 
-[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/Kamva/laravel-crud/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/Kamva/laravel-crud/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Kamva/laravel-crud/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/Kamva/laravel-crud/releases/tag/v1.0.0

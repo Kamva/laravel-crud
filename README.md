@@ -930,8 +930,17 @@ Two soft-behaviour changes worth flagging:
 composer test
 ```
 
-142 unit tests covering these features and their non-breaking
-contracts. Run via orchestra/testbench against PHP 8.1+. See `tests/`.
+151 unit tests covering these features and their non-breaking
+contracts. Run via orchestra/testbench against PHP 8.1+, on in-memory SQLite
+by default. To run them on Postgres, point them at a throwaway database whose
+name contains `test` (every test drops its public schema):
+
+```bash
+DB_CONNECTION=pgsql DB_HOST=127.0.0.1 DB_DATABASE=testing \
+DB_USERNAME=postgres DB_PASSWORD=secret composer test
+```
+
+CI (`.github/workflows/tests.yml`) runs both. See `tests/`.
 
 ### Benchmarks
 

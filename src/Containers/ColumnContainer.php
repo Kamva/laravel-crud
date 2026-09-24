@@ -20,13 +20,33 @@ class ColumnContainer
         return $this->name;
     }
 
-    public function guessColNameInDB()
+    /**
+     * The database column this list column reads, for search and ordering,
+     * or null when it doesn't read one: a Closure column, or a dotted column
+     * that {@see getValue()} resolves through a relation on $model
+     * (`'category.title'`). Without $model, dotted columns aren't checked.
+     */
+    public function guessColNameInDB($model = null)
     {
         if (!is_string($this->value)) {
-            return "_id";
+            return null;
         }
 
-        return explode(".", $this->value)[0] ?? null;
+        $segments   = explode(".", $this->value);
+        $action     = $segments[1] ?? null;
+
+        // Same resolution order as getValue(): a column type or a column
+        // method handles the value first; otherwise a method on the model
+        // means the first segment is a relation, not a column.
+        if (
+            !empty($action) && is_object($model)
+            && !KamvaCrud::hasColumnType($action) && !method_exists($this, $action)
+            && method_exists($model, $segments[0])
+        ) {
+            return null;
+        }
+
+        return $segments[0];
     }
 
     public function getValue($data, $raw = false)
