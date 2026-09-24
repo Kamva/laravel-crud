@@ -8,20 +8,25 @@ use Kamva\Crud\Tests\TestCase;
 
 /**
  * A row action's own access closure and the default ACL method
- * (setDefaultACLMethod()). By default the closure replaces the default
- * check; setActionAclMode('and') makes the closure narrow it (issue #31).
+ * (setDefaultACLMethod()). By default (since 3.0) the closure narrows the
+ * default check; setActionAclMode('replace') restores the pre-3.0 rule where
+ * it replaces it (issue #31).
  */
 class ActionAclModeTest extends TestCase
 {
     private array $calls = [];
 
-    public function test_replace_is_the_default_mode(): void
+    public function test_and_is_the_default_mode(): void
     {
-        $this->assertSame('replace', KamvaCrud::getActionAclMode());
+        $this->assertSame('and', KamvaCrud::getActionAclMode());
+
+        $this->defaultAllows(false);
+        $this->assertFalse($this->action(fn () => true)->hasAccess($this->row()));
     }
 
     public function test_replace_mode_uses_the_closure_instead_of_the_default(): void
     {
+        KamvaCrud::setActionAclMode('replace');
         $this->defaultAllows(false);
 
         $this->assertTrue($this->action(fn () => true)->hasAccess($this->row()));
@@ -31,6 +36,7 @@ class ActionAclModeTest extends TestCase
 
     public function test_replace_mode_returns_the_closure_result_as_is(): void
     {
+        KamvaCrud::setActionAclMode('replace');
         $this->defaultAllows(true);
 
         $this->assertSame(0, $this->action(fn () => 0)->hasAccess($this->row()));
@@ -75,10 +81,10 @@ class ActionAclModeTest extends TestCase
 
     public function test_the_mode_survives_request_state_flushes(): void
     {
-        KamvaCrud::setActionAclMode('and');
+        KamvaCrud::setActionAclMode('replace');
         KamvaCrud::flushRequestState();
 
-        $this->assertSame('and', KamvaCrud::getActionAclMode());
+        $this->assertSame('replace', KamvaCrud::getActionAclMode());
     }
 
     private function defaultAllows(bool $allow): void

@@ -43,10 +43,10 @@ class Service
     /**
      * How a row action's own access closure combines with the default ACL
      * method (setDefaultACLMethod()):
-     *  - 'replace' (default): the action's closure is used instead of the
-     *    default method, as in every release so far.
-     *  - 'and': both must allow the action. The closure narrows the
-     *    permission check (e.g. "only unlocked rows") instead of replacing it.
+     *  - 'and' (default since 3.0): both must allow the action. The closure
+     *    narrows the permission check (e.g. "only unlocked rows").
+     *  - 'replace': the action's closure is used instead of the default
+     *    method, as before 3.0.
      */
     public function setActionAclMode(string $mode): void
     {
@@ -59,7 +59,7 @@ class Service
 
     public function getActionAclMode(): string
     {
-        return $this->get('action_acl_mode') ?? 'replace';
+        return $this->get('action_acl_mode') ?? 'and';
     }
 
     /**

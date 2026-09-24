@@ -33,22 +33,26 @@ Two checks can decide whether a row shows an action:
 - the action's **own closure** (`addAction(..., $accessControlMethod)`,
   `fn ($row) => bool`), usually a row condition.
 
-By default an action's own closure **replaces** the default method: an action
-with a closure skips the permission check. To have the closure **narrow** the
-permission check instead, so both must allow the action, switch the mode. It
-applies to the whole app, so set it once next to `setDefaultACLMethod()`, in a
-service provider's `boot()`, not in a controller:
+Both must allow the action: the closure **narrows** the permission check.
 
 ```php
 // AppServiceProvider::boot()
 KamvaCrud::setDefaultACLMethod(fn ($route, $user, $row) => $user->can($route));
-KamvaCrud::setActionAclMode('and');   // default: 'replace'
 ```
 
 ```php
 // In a controller's setup(): shown only to users who may use posts.edit,
 // and only for unlocked rows.
 $this->addAction(EditAction::class, 'posts.edit', fn ($row) => ! $row->locked);
+```
+
+Before 3.0 an action's own closure **replaced** the default method, so an
+action with a closure skipped the permission check. To keep that rule, set the
+mode once for the whole app, next to `setDefaultACLMethod()` in a service
+provider's `boot()`, not in a controller:
+
+```php
+KamvaCrud::setActionAclMode('replace');   // default: 'and'
 ```
 
 Either way this only decides which buttons are shown. The route itself must
