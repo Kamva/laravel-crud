@@ -26,7 +26,7 @@ care of listing, creating, editing, deleting, exporting, and importing records.
 | Layer | Technology |
 |---|---|
 | Language | PHP >= 8.1 |
-| Framework | Laravel >= 6.0 |
+| Framework | Laravel 10, 11, 12 |
 | Excel I/O | `maatwebsite/excel` ^3.1 |
 | Front-end (views) | Blade stubs (consumers implement them) |
 | Date formatting | Jalali/Persian calendar (`jdate()` helper assumed in host app) |
@@ -253,7 +253,7 @@ KamvaCrud::apiResponse($data, $code = 200)          // Build JSON response
 KamvaCrud::set($key, $value)                        // Set request-scoped data
 KamvaCrud::get($key)                                // Get request-scoped data
 KamvaCrud::setDefaultACLMethod(Closure $callable)   // Global ACL for actions
-KamvaCrud::setActionAclMode('replace'|'and')        // Action closure replaces / narrows the global ACL
+KamvaCrud::setActionAclMode('and'|'replace')        // Action closure narrows (default) / replaces the global ACL
 KamvaCrud::isApi()                                  // Is this an API request?
 ```
 

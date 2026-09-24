@@ -7,15 +7,23 @@ on:
 
 jobs:
   tests:
-    name: PHP ${{ matrix.php }} / ${{ matrix.db }}
+    name: Laravel ${{ matrix.laravel }} / PHP ${{ matrix.php }} / ${{ matrix.db }}
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        # 8.1 resolves to Laravel 10; 8.2 and 8.4 to Laravel 11.
-        php: ['8.1', '8.2', '8.4']
+        laravel: ['10', '11', '12']
         db: [sqlite, pgsql]
+        # Each supported Laravel on its oldest or newest PHP, so both ends of
+        # the PHP range (8.1 to 8.4) are covered.
+        include:
+          - laravel: '10'
+            php: '8.1'
+          - laravel: '11'
+            php: '8.2'
+          - laravel: '12'
+            php: '8.4'
 
     services:
       postgres:
@@ -48,12 +56,14 @@ jobs:
           extensions: pdo_sqlite, pdo_pgsql
           coverage: none
 
-      # No lock file: resolve the newest dev dependencies the constraints
-      # allow. Composer 2.10+ refuses Laravel releases with security
-      # advisories, which is every release testbench ^7|^8|^9 accepts.
-      # The package doesn't pin Laravel for apps, so tests may use them.
+      # No lock file: resolve the newest dependencies for this Laravel.
+      # Composer 2.10+ refuses Laravel releases with security advisories,
+      # which covers every Laravel 10 and 11 release. The package doesn't pin
+      # Laravel for apps, so tests may use them.
       - name: Install dependencies
-        run: composer update --no-interaction --no-progress --prefer-dist --no-security-blocking
+        run: |
+          composer require "laravel/framework:^${{ matrix.laravel }}.0" --no-update --no-interaction
+          composer update --no-interaction --no-progress --prefer-dist --no-security-blocking
 
       - name: Run tests
         run: vendor/bin/phpunit

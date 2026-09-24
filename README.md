@@ -294,8 +294,8 @@ Then run `composer dump-autoload`.
 
 | Requirement | Version |
 |---|---|
-| PHP | >= 8.1 |
-| Laravel | >= 6.0 |
+| PHP | >= 8.1 (8.2 for Laravel 11 and 12) |
+| Laravel | 10, 11 or 12 |
 | maatwebsite/excel | ^3.1 |
 
 ---
@@ -827,7 +827,7 @@ KamvaCrud::apiResponse($data, int $code = 200);   // Returns JsonResponse
 KamvaCrud::set(string $key, mixed $value);
 KamvaCrud::get(string $key);
 KamvaCrud::setDefaultACLMethod(Closure $callable);  // ($route, $user, $row) => bool
-KamvaCrud::setActionAclMode('and');  // an action's own closure narrows the default ACL ('replace' = default)
+KamvaCrud::setActionAclMode('replace');  // an action's own closure replaces the default ACL (default 'and': narrows it)
 KamvaCrud::isApi();
 ```
 

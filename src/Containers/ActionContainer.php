@@ -242,8 +242,9 @@ class ActionContainer
             return $default($this->route, auth()->user(), $data);
         }
 
-        // 'and' mode: the action's closure narrows the default permission
-        // check instead of replacing it (see Service::setActionAclMode()).
+        // 'and' mode (the default): the action's closure narrows the default
+        // permission check instead of replacing it (see
+        // Service::setActionAclMode()).
         if (!empty($default) && KamvaCrud::getActionAclMode() === 'and' && !$default($this->route, auth()->user(), $data)) {
             return false;
         }
