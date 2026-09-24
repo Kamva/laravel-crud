@@ -22,11 +22,8 @@ final class ColumnSet implements IteratorAggregate
     /** @var array<int, string> column index => relation that column reads */
     private array $relationColumns = [];
 
-    /** @var array<string, array> relation => map from RelationPreloader::load() */
+    /** @var array<string, array> relation => result of RelationPreloader::load() */
     private array $preloaded = [];
-
-    /** @var array<string, array<int, true>> relation => loaded models already attached */
-    private array $handedOut = [];
 
     /**
      * @param ColumnContainer[] $columns
@@ -67,7 +64,6 @@ final class ColumnSet implements IteratorAggregate
     {
         $this->relationColumns = [];
         $this->preloaded       = [];
-        $this->handedOut       = [];
 
         foreach ($this->columns as $index => $col) {
             if (! is_string($col->value)) {
@@ -88,9 +84,8 @@ final class ColumnSet implements IteratorAggregate
         }
 
         foreach (array_unique($this->relationColumns) as $name) {
-            if ($map = RelationPreloader::load($rows, $name)) {
-                $this->preloaded[$name] = $map;
-                $this->handedOut[$name] = [];
+            if ($loaded = RelationPreloader::load($rows, $name)) {
+                $this->preloaded[$name] = $loaded;
             }
         }
     }
@@ -146,16 +141,21 @@ final class ColumnSet implements IteratorAggregate
             return;
         }
 
-        $id    = spl_object_id($row);
-        $entry = $this->preloaded[$name][$id] ?? null;
+        $loaded = &$this->preloaded[$name];
+        $id     = spl_object_id($row);
+        $entry  = $loaded['rows'][$id] ?? null;
         if ($entry === null || $entry[0] !== $row) {
             return;
         }
 
-        unset($this->preloaded[$name][$id]);
+        unset($loaded['rows'][$id]);
 
-        if (! $row->relationLoaded($name)) {
-            $row->setRelation($name, RelationPreloader::instanceFor($entry[1], $this->handedOut[$name]));
+        // Skip if something loaded it meanwhile, or changed the row's key
+        // (lazy loading would read the new key).
+        if ($row->relationLoaded($name) || $row->getAttribute($loaded['rowKey']) !== $entry[1]) {
+            return;
         }
+
+        $row->setRelation($name, RelationPreloader::hydrate($loaded['related'], $loaded['connection'], $entry[2]));
     }
 }

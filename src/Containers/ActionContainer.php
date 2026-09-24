@@ -117,8 +117,9 @@ class ActionContainer
      * placeholder values, then each row's values are substituted into it.
      *
      * Only used when the result is guaranteed to equal route()'s:
-     *  - every row value is an int or an alphanumeric string, which route()
-     *    inserts verbatim (no encoding, no model binding);
+     *  - every row value is an int or a string of letters, digits, `-` and
+     *    `_` (e.g. ids, UUIDs, slugs), which route() inserts verbatim (no
+     *    encoding, no model binding);
      *  - the URL generator is Laravel's own, without formatHostUsing() /
      *    formatPathUsing() callbacks that could depend on the values;
      *  - each placeholder appears exactly once in the generated URL, and the
@@ -134,7 +135,7 @@ class ActionContainer
         $values = [];
         foreach ($rowKeys as $key) {
             $value = $parameters[$key];
-            if (! is_int($value) && ! (is_string($value) && preg_match('/^[A-Za-z0-9]+$/D', $value))) {
+            if (! is_int($value) && ! (is_string($value) && preg_match('/^[A-Za-z0-9_-]+$/D', $value))) {
                 return null;
             }
             $values[$key] = (string) $value;

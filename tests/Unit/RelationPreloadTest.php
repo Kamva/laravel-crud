@@ -273,6 +273,61 @@ class RelationPreloadTest extends TestCase
         }
     }
 
+    public function test_relations_whose_query_shape_eager_loading_changes_stay_lazy(): void
+    {
+        $relations = ['ownerTakeOne', 'ownerOrWhere', 'ownerWhereRaw', 'ownerAfterQuery', 'ownerViaSubclass'];
+
+        foreach ($relations as $relation) {
+            [$data, $queries] = $this->draw(fn (CRUDController $c) => $c->addColumn('Owner', "{$relation}.name"));
+
+            $expected = $this->lazyValues(fn ($item) => $item->$relation?->name);
+            $this->assertSame($expected, array_column($data, 1), $relation);
+            $this->assertGreaterThan(8, count(array_filter($expected)), "{$relation}: lazy loading finds these");
+            $this->assertGreaterThan(10, $queries, "{$relation} must keep loading per row");
+        }
+    }
+
+    public function test_key_changed_by_an_earlier_column_is_honoured(): void
+    {
+        $retarget = function ($row) {
+            if ($row->id % 2) {
+                $row->owner_id = 3;
+            }
+
+            return 'retargeted';
+        };
+
+        [$data] = $this->draw(function (CRUDController $c) use ($retarget) {
+            $c->addColumn('Retarget', $retarget);
+            $c->addColumn('Owner', 'owner.name');
+        });
+
+        $expected = $this->lazyValues(function ($item) use ($retarget) {
+            $retarget($item);
+
+            return $item->owner?->name;
+        });
+        $this->assertSame($expected, array_column($data, 2));
+    }
+
+    public function test_abandoned_preloads_fire_no_extra_retrieved_events(): void
+    {
+        RpOwner::where('name', 'Cid')->update(['code' => 'CID']);
+
+        $count = 0;
+        RpOwner::retrieved(function () use (&$count) {
+            $count++;
+        });
+
+        $this->lazyValues(fn ($item) => $item->ownerByCode?->name);
+        $lazy  = $count;
+        $count = 0;
+
+        $this->draw(fn (CRUDController $c) => $c->addColumn('Owner', 'ownerByCode.name'));
+
+        $this->assertSame($lazy, $count);
+    }
+
     public function test_large_pages_are_loaded_in_chunks(): void
     {
         foreach (range(13, 2600) as $i) {
@@ -383,6 +438,10 @@ class RelationPreloadTest extends TestCase
     }
 }
 
+class RpCustomBelongsTo extends \Illuminate\Database\Eloquent\Relations\BelongsTo
+{
+}
+
 class RpNote extends Model
 {
     protected $table = 'rp_notes';
@@ -480,6 +539,37 @@ class RpItem extends Model
     public function ownerByRef()
     {
         return $this->belongsTo(RpOwner::class, 'owner_ref');
+    }
+
+    public function ownerTakeOne()
+    {
+        return $this->belongsTo(RpOwner::class, 'owner_id')->take(1);
+    }
+
+    public function ownerOrWhere()
+    {
+        return $this->belongsTo(RpOwner::class, 'owner_id')->where('name', '!=', 'nobody')->orWhere('name', 'Ann');
+    }
+
+    public function ownerWhereRaw()
+    {
+        return $this->belongsTo(RpOwner::class, 'owner_id')->whereRaw('1 = 1');
+    }
+
+    public function ownerAfterQuery()
+    {
+        return $this->belongsTo(RpOwner::class, 'owner_id')->afterQuery(function ($owners) {
+            foreach ($owners as $owner) {
+                $owner->name .= ' (after)';
+            }
+        });
+    }
+
+    public function ownerViaSubclass()
+    {
+        $related = new RpOwner();
+
+        return new RpCustomBelongsTo($related->newQuery(), $this, 'owner_id', 'id', 'ownerViaSubclass');
     }
 
     public function noteWithInverse()

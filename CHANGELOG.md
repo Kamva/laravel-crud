@@ -19,15 +19,17 @@ No breaking changes and nothing to change in your app. See
   row ends up exactly as lazy loading would have left it: the relation is
   attached when its column is evaluated, and every row gets its own
   instance, hydrated like a lazy load (`retrieved` events included). It is
-  only used where the result is guaranteed identical: to-one relations
-  whose definition doesn't depend on the row, without nested eager loads or
-  `chaperone()`, with keys PHP and the database compare the same way (no
-  case-insensitive or type-coerced matches), and not for custom column
-  types. Anything else, including rows without a match on a relation with
-  `withDefault()`, keeps loading lazily.
-- **Row-action URLs** are built from a per-action template for plain
-  alphanumeric values instead of calling `route()` for every action on every
-  row. Other values, custom URL generators and URL formatting callbacks still
+  only used where the result is guaranteed identical: Laravel's own to-one
+  relations whose definition doesn't depend on the row, whose query eager
+  loading reproduces (no limit, joins, `orWhere`, raw wheres, nested eager
+  loads, `afterQuery()` or `chaperone()`), with keys PHP and the database
+  compare the same way (no case-insensitive or type-coerced matches), and not
+  for custom column types. Anything else, including rows without a match on
+  a relation with `withDefault()` and rows whose key an earlier column
+  changed, keeps loading lazily.
+- **Row-action URLs** are built from a per-action template for plain values
+  (ids, UUIDs, simple slugs) instead of calling `route()` for every action on
+  every row. Other values, custom URL generators and URL formatting callbacks still
   use `route()`.
 - **Action `render` lookups** (`view()->exists()`) run once per request
   instead of once per row, which previously probed the filesystem each time
@@ -35,8 +37,8 @@ No breaking changes and nothing to change in your app. See
 - **`'field.field'` columns** find their form field through an index.
 - **Export** no longer runs an unused `COUNT(*)` query.
 
-Benchmark medians (5,000 rows, SQLite, opcache): list page 31.9 → 16.0 ms,
-API index 12.5 → 8.7 ms, export 550 → 312 ms. Queries per list page 103 → 4,
+Benchmark medians (5,000 rows, SQLite, opcache): list page 32.4 → 15.8 ms,
+API index 13.4 → 8.2 ms, export 557 → 315 ms. Queries per list page 103 → 4,
 per export 5,002 → 6.
 
 ### Added

@@ -18,18 +18,25 @@ The list JSON, API index and export now fetch those relations for the whole
 page in one query per relation (in chunks of 1,000 rows). Every row ends up
 exactly as lazy loading would have left it:
 
+- The records are fetched as raw rows: no model is created and no model event
+  fires until a record is attached.
 - The relation is attached to a row just before the column that reads it is
   evaluated, the moment lazy loading would have loaded it. Columns, closures
-  and `toArray()` calls that run earlier see the row as before.
-- Each row gets its own model instance, hydrated from the database row the
-  same way a lazy load does, so `retrieved` events fire once per row too.
+  and `toArray()` calls that run earlier see the row as before. If an earlier
+  column changed the row's foreign key, the row loads lazily with the new key.
+- Each row gets its own model instance, hydrated the same way a lazy load
+  does, so `retrieved` events fire once per row too.
 
 A relation is only preloaded when the result is guaranteed to be the same:
 
-- it is a to-one relation (`belongsTo`, `hasOne`, `morphOne`), reached through
-  the relation method rather than an attribute, cast or accessor with the same
-  name, and without nested eager loads (e.g. the related model's `$with`) or
-  an inverse (`chaperone()`);
+- it is exactly Laravel's `belongsTo`, `hasOne` or `morphOne` relation (not a
+  subclass from a package, which may match records differently), reached
+  through the relation method rather than an attribute, cast or accessor with
+  the same name;
+- its query is one eager loading reproduces: no `limit`/`take`/`offset`,
+  joins (including `latestOfMany()`), grouping, unions, top-level `orWhere`
+  or raw where clauses, nested eager loads (e.g. the related model's
+  `$with`), `afterQuery()` callbacks or inverse (`chaperone()`);
 - its definition does not depend on the row. A relation such as
   `->where('currency', $this->currency)`, or one that picks a different model
   depending on a column, keeps loading lazily;
@@ -46,6 +53,11 @@ integer keys that the query did not return), and so does a row without a
 record on a relation with `withDefault()`, because the default may be built
 from the row itself.
 
+The records are read once, before the page's rows are rendered, where lazy
+loading read each one while rendering its row. That only matters if code
+running while the list renders (a column, ACL or action callback) writes to
+the related table and expects later rows to show the change.
+
 Relations read inside Closure columns are not detected. If a Closure column
 reads `$row->author->name`, eager-load the relation yourself by overriding
 `getModel()` in your controller:
@@ -59,9 +71,10 @@ public function getModel($assignQuery = true)
 
 ### Row-action URLs
 
-Every action on every row builds a URL with `route()`. For plain alphanumeric
-parameter values (ids, simple slugs) the URL is now generated once per action
-and the row value is substituted into it. Other values, a custom
+Every action on every row builds a URL with `route()`. For plain parameter
+values (integers, or letters, digits, `-` and `_`: ids, UUIDs, simple slugs)
+the URL is now generated once per action and the row value is substituted into
+it. Other values, a custom
 `UrlGenerator`, or `URL::formatPathUsing()`/`formatHostUsing()` callbacks fall
 back to `route()`. The fast path is also checked against a real `route()` call
 before it is used.
@@ -116,11 +129,11 @@ about ±15% between runs; query counts are exact.
 
 | Scenario | Before | After | Queries before → after |
 |---|---|---|---|
-| List page, 100 rows | 31.9 ms | 16.0 ms (−50%) | 103 → 4 |
-| List search, 25 rows | 13.8 ms | 8.6 ms (−38%) | 28 → 4 |
-| API index, 100 rows | 12.5 ms | 8.7 ms (−31%) | 102 → 3 |
-| Export, 5,000 rows | 550 ms | 312 ms (−43%) | 5,002 → 6 |
-| Edit form | 0.6 ms | 0.7 ms (within noise) | 2 → 2 |
+| List page, 100 rows | 32.4 ms | 15.8 ms (−51%) | 103 → 4 |
+| List search, 25 rows | 11.9 ms | 8.0 ms (−33%) | 28 → 4 |
+| API index, 100 rows | 13.4 ms | 8.2 ms (−38%) | 102 → 3 |
+| Export, 5,000 rows | 557 ms | 315 ms (−43%) | 5,002 → 6 |
+| Edit form | under 1.1 ms either way (within noise) | | 2 → 2 |
 
 Peak memory for the export dropped from 19 MB to 14 MB.
 
