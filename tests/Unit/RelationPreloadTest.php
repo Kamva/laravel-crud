@@ -3,6 +3,8 @@
 namespace Kamva\Crud\Tests\Unit;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -26,9 +28,15 @@ class RelationPreloadTest extends TestCase
             $table->increments('id');
             $table->string('name');
             $table->string('currency')->nullable();
-            $table->string('code')->collation('NOCASE')->nullable();
             $table->timestamps();
         });
+        // A column the database compares case-insensitively. Laravel 10's
+        // SQLite grammar ignores ->collation(), so add it with raw SQL there.
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('ALTER TABLE rp_owners ADD COLUMN code VARCHAR COLLATE NOCASE');
+        } else {
+            Schema::table('rp_owners', fn ($table) => $table->string('code')->collation('NOCASE')->nullable());
+        }
         Schema::create('rp_items', function ($table) {
             $table->increments('id');
             $table->string('title');
@@ -265,7 +273,12 @@ class RelationPreloadTest extends TestCase
             RpNote::create(['item_id' => $id, 'body' => "note {$id}"]);
         }
 
-        foreach (['noteWithInverse', 'noteWithNestedEagerLoad'] as $relation) {
+        // chaperone() (an inverse relation) exists from Laravel 11.
+        $relations = method_exists(HasOne::class, 'chaperone')
+            ? ['noteWithInverse', 'noteWithNestedEagerLoad']
+            : ['noteWithNestedEagerLoad'];
+
+        foreach ($relations as $relation) {
             [$data, $queries] = $this->draw(fn (CRUDController $c) => $c->addColumn('Note', "{$relation}.body"));
 
             $this->assertSame($this->lazyValues(fn ($item) => $item->$relation?->body), array_column($data, 1), $relation);
@@ -276,9 +289,12 @@ class RelationPreloadTest extends TestCase
     public function test_relations_whose_query_shape_eager_loading_changes_stay_lazy(): void
     {
         $relations = [
-            'ownerTakeOne', 'ownerOrWhere', 'ownerWhereRaw', 'ownerAfterQuery', 'ownerViaSubclass',
-            'ownerWithScopedAfterQuery', 'ownerWithScopedEagerLoad',
+            'ownerTakeOne', 'ownerOrWhere', 'ownerWhereRaw', 'ownerViaSubclass', 'ownerWithScopedEagerLoad',
         ];
+        // afterQuery() exists from Laravel 11.
+        if (method_exists(QueryBuilder::class, 'afterQuery')) {
+            array_push($relations, 'ownerAfterQuery', 'ownerWithScopedAfterQuery');
+        }
 
         foreach ($relations as $relation) {
             [$data, $queries] = $this->draw(fn (CRUDController $c) => $c->addColumn('Owner', "{$relation}.name"));

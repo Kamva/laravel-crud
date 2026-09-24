@@ -13,10 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 8.1 resolves to Laravel 10, where some fixtures in
-        # RelationPreloadTest use Laravel 11-only APIs (chaperone(),
-        # afterQuery()); 8.2+ resolves to Laravel 11.
-        php: ['8.2', '8.4']
+        # 8.1 resolves to Laravel 10; 8.2 and 8.4 to Laravel 11.
+        php: ['8.1', '8.2', '8.4']
         db: [sqlite, pgsql]
 
     services:
