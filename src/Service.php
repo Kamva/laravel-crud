@@ -69,6 +69,23 @@ class Service
         return $this->data[$key] ?? null;
     }
 
+    /**
+     * Forget what belongs to one request: the active controller ('class'),
+     * the record being edited ('model') and the per-controller option
+     * caches of source-backed fields. Settings made at boot (default ACL
+     * method, dark mode, column types…) are kept. Called by
+     * CRUDController::init(), so a long-lived worker doesn't serve one
+     * request's state to the next.
+     */
+    public function flushRequestState(): void
+    {
+        foreach (array_keys($this->data) as $key) {
+            if ($key === 'class' || $key === 'model' || str_starts_with($key, 'source_cache_')) {
+                unset($this->data[$key]);
+            }
+        }
+    }
+
     public function set($key, $value)
     {
         $this->data[$key] = $value;

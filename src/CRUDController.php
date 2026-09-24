@@ -46,12 +46,34 @@ class CRUDController extends Controller
     private bool $rowCounter   = true;
     private bool $createButton = true;
 
+    /**
+     * What setup() builds. init() can run more than once on one instance
+     * (Laravel keeps a route's controller; Octane-style workers serve many
+     * requests with it), so these are put back to their state from before
+     * the first setup() each time, instead of being appended to again.
+     */
+    private const DEFINITION = [
+        'title', 'cols', 'apiEntities', 'exportCols', 'importProfiles', 'filters',
+        'actions', 'topActions', 'preferences', 'routeParameters', 'model', 'query',
+        'form', 'timeline', 'detailSections', 'detailSidebars', 'kanban', 'stats',
+        'rowCounter', 'createButton',
+    ];
+
+    /** The DEFINITION properties before the first setup(); null until then. */
+    private ?array $pristine = null;
+
     public function __construct(Form $form)
     {
         $this->form = $form;
 
         $this->middleware(function ($request, $next) {
-            $this->init();
+            // Initialise the controller handling this request, not the one
+            // this closure was created on: Laravel caches the gathered
+            // middleware on the route, so after the route's controller is
+            // flushed (as Octane does) this closure outlives $this.
+            $controller = $request->route()?->getController();
+            ($controller instanceof self ? $controller : $this)->init();
+
             return $next($request);
         });
     }
@@ -1030,6 +1052,16 @@ class CRUDController extends Controller
 
     public function init()
     {
+        if ($this->pristine === null) {
+            $this->pristine = $this->definitionState();
+        } else {
+            foreach ($this->pristine as $property => $value) {
+                $this->$property = is_object($value) ? clone $value : $value;
+            }
+        }
+
+        KamvaCrud::flushRequestState();
+
         if (method_exists($this, 'setup')) {
             $this->setup();
         } else {
@@ -1037,5 +1069,16 @@ class CRUDController extends Controller
         }
 
         KamvaCrud::set('class', $this);
+    }
+
+    private function definitionState(): array
+    {
+        $state = [];
+        foreach (self::DEFINITION as $property) {
+            $value = $this->$property;
+            $state[$property] = is_object($value) ? clone $value : $value;
+        }
+
+        return $state;
     }
 }
