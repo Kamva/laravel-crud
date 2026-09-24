@@ -107,9 +107,19 @@ final class DataTablesLoader
             return $rows;
         }
 
-        return $rows->where(function ($q) use ($text) {
+        // Postgres' LIKE is case-sensitive; ILIKE matches the way LIKE does
+        // under MySQL's default collations and SQLite.
+        $operator   = $rows->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+        $model      = $rows->getModel();
+
+        return $rows->where(function ($q) use ($text, $operator, $model) {
             foreach ($this->columns as $col) {
-                $q->orWhere($col->guessColNameInDB(), "like", "%" . $text . "%");
+                // Columns with no database column of their own (Closure or
+                // relation values) can't be searched in the query.
+                $colName = $col->guessColNameInDB($model);
+                if (!empty($colName)) {
+                    $q->orWhere($colName, $operator, "%" . $text . "%");
+                }
             }
         });
     }
@@ -136,7 +146,10 @@ final class DataTablesLoader
             return $rows->orderBy("created_at", "desc");
         }
 
-        $colName = $this->columns->at($index)->guessColNameInDB();
+        // A column with no database column of its own (Closure or relation
+        // value) orders by the primary key: a stable order on every driver.
+        $colName = $this->columns->at($index)->guessColNameInDB($rows->getModel())
+            ?? $rows->getModel()->getKeyName();
 
         // $dir is untrusted too: Builder::orderBy() throws on anything but
         // asc/desc, so fall back to the default direction instead of a 500.

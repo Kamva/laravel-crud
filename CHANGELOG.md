@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **List search and sorting work on Postgres and MySQL.** Searching the list
+  table, or sorting it by a Closure column, queried a column named `_id`
+  (a MongoDB leftover), and relation columns such as `'owner.name'` queried a
+  column named after the relation. Both are errors on Postgres and MySQL.
+  Search now skips columns with no database column of their own, and sorting
+  by one orders by the model's primary key (`_id` on MongoDB, as before).
+- **List search ignores case on Postgres**, as it already did on MySQL and
+  SQLite (`ILIKE` instead of `LIKE`).
+- **`addSearchField()` works on non-text columns on Postgres.** It used
+  `LOWER(column)`, which Postgres only defines for text; the column is now
+  cast to text first. Other databases get the same SQL as before.
+
+### Internal
+
+- CI: a GitHub Actions workflow runs the tests on SQLite and Postgres 16.
+
 ## [2.1.0] - 2026-09-24
 
 No breaking changes and nothing to change in your app. Shipped in #27. See

@@ -695,11 +695,15 @@ class CRUDController extends Controller
             // parameter-bound AND neutralising identifier injection if a caller
             // ever passes a non-trusted column name. LOWER() is broadly
             // portable; collation decides whether the LIKE is case-sensitive.
-            $grammar = $rows->getConnection()->getQueryGrammar();
+            // Postgres has no LOWER() for non-text types (integer, date…),
+            // so cast there first, the way MySQL and SQLite do implicitly.
+            $connection = $rows->getConnection();
+            $grammar    = $connection->getQueryGrammar();
+            $cast       = $connection->getDriverName() === 'pgsql' ? '::text' : '';
 
-            $rows->where(function ($q) use ($columns, $like, $grammar) {
+            $rows->where(function ($q) use ($columns, $like, $grammar, $cast) {
                 foreach ($columns as $col) {
-                    $q->orWhereRaw("LOWER({$grammar->wrap($col)}) LIKE ?", [$like]);
+                    $q->orWhereRaw("LOWER({$grammar->wrap($col)}{$cast}) LIKE ?", [$like]);
                 }
             });
         };

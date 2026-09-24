@@ -2,11 +2,37 @@
 
 namespace Kamva\Crud\Tests;
 
+use Illuminate\Support\Facades\DB;
 use Kamva\Crud\KamvaCRUDServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
+/**
+ * Tests run on in-memory SQLite. Set DB_CONNECTION=pgsql (plus DB_HOST,
+ * DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD) to run them on Postgres.
+ */
 abstract class TestCase extends Orchestra
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        if (config('database.connections.testing.driver') === 'pgsql') {
+            // Tests create their tables in setUp(); start each one from an
+            // empty schema, as the in-memory SQLite database does. Fixtures
+            // use SQLite's built-in NOCASE collation, so define it here.
+            DB::unprepared('
+                DROP SCHEMA public CASCADE;
+                CREATE SCHEMA public;
+                CREATE COLLATION "NOCASE" (provider = icu, locale = \'und-u-ks-level2\', deterministic = false);
+            ');
+
+            // Old application instances aren't always garbage-collected
+            // between tests; close the connection so they can't use up
+            // the server's connection limit.
+            $this->beforeApplicationDestroyed(fn () => DB::disconnect());
+        }
+    }
+
     protected function getPackageProviders($app): array
     {
         return [
@@ -17,7 +43,17 @@ abstract class TestCase extends Orchestra
     protected function defineEnvironment($app): void
     {
         $app['config']->set('database.default', 'testing');
-        $app['config']->set('database.connections.testing', [
+        $app['config']->set('database.connections.testing', env('DB_CONNECTION') === 'pgsql' ? [
+            'driver' => 'pgsql',
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'testing'),
+            'username' => env('DB_USERNAME', 'postgres'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'schema' => 'public',
+        ] : [
             'driver' => 'sqlite',
             'database' => ':memory:',
             'prefix' => '',

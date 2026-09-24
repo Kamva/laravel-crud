@@ -39,6 +39,13 @@ composer install
 vendor/bin/phpunit
 ```
 
+`DB_CONNECTION=pgsql` (with `DB_HOST`, `DB_PORT`, `DB_DATABASE`,
+`DB_USERNAME`, `DB_PASSWORD`) runs them on Postgres instead; `tests/TestCase.php`
+resets the schema before each test. CI (`.github/workflows/tests.yml`) runs
+both. Query code must work on SQLite, MySQL and Postgres: SQLite reads an
+unknown double-quoted column as a string, so a bad column name only fails on
+the other two.
+
 PHP 8.1 is the minimum (`Kanban/` and `Timeline/` use `readonly` promoted
 properties), so 8.1 syntax is fine anywhere in `src/`.
 
