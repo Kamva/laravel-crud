@@ -68,9 +68,9 @@ class CRUDController extends Controller
 
         $this->middleware(function ($request, $next) {
             // Initialise the controller handling this request, not the one
-            // this closure was created on: Laravel caches the gathered
-            // middleware on the route, so after the route's controller is
-            // flushed (as Octane does) this closure outlives $this.
+            // this closure was created on: the route caches the middleware
+            // it gathered, so this closure can outlive $this when the
+            // route's controller is replaced.
             $controller = $request->route()?->getController();
             ($controller instanceof self ? $controller : $this)->init();
 

@@ -55,15 +55,15 @@ class LongLivedControllerTest extends TestCase
     {
         $first = $this->getJson(self::LIST)->assertOk()->json('data');
 
-        // Octane flushes the route's controller between requests. Before
-        // Laravel 10 that kept the middleware the route had gathered, whose
-        // init() closure was bound to the old controller instance.
+        // The route's controller is dropped but the middleware it gathered
+        // is kept, so the init() closure bound to the old instance runs
+        // for a new controller (the 500 reported in #33).
         foreach (app('router')->getRoutes() as $route) {
             $route->controller = null;
         }
         $this->assertSame($first, $this->getJson(self::LIST)->assertOk()->json('data'));
 
-        // Laravel 10+ flushController() drops the gathered middleware too.
+        // flushController() (what Octane calls) drops both.
         foreach (app('router')->getRoutes() as $route) {
             $route->flushController();
         }

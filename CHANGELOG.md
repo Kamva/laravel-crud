@@ -47,9 +47,10 @@ list view you implement.
   definition from its state before the first `setup()` (state set in a
   subclass constructor is kept). Select options, the edited record and the
   active controller are no longer kept in the `kamva-crud` singleton between
-  requests. After Octane flushed the route's controller on Laravel 8 and 9,
-  the next request returned a 500 (`Application::newQuery does not exist`);
-  the init middleware now initialises the controller handling the request.
+  requests. When a route's controller was replaced but the middleware it had
+  gathered was kept, the next request returned a 500
+  (`Application::newQuery does not exist`); the init middleware now
+  initialises the controller handling the request.
 - **List search and sort skip accessor columns** (#30). 2.2.0 left out
   Closure and relation columns, but accessor and appended attributes
   (`'full_name'`) and column types on a relation (`'owner.badge'`) were still
