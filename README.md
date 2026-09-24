@@ -911,6 +911,7 @@ release. Each has a dedicated doc with the full API + examples.
 | Top actions          | [docs/actions.md](docs/actions.md)               | Page-header buttons (`addTopAction`) and the publishable row-actions markup. |
 | Field flags          | [docs/fields.md](docs/fields.md)                 | `readOnly()` (no writes) and `showWhen()` (conditional visibility). |
 | Column renderers     | [docs/columns.md](docs/columns.md)               | `Renderers::badge / link / boolean / truncate / date` helpers. |
+| Performance          | [docs/performance.md](docs/performance.md)       | Automatic eager loading of relation columns, faster action URLs, and the benchmark suite. |
 
 Two soft-behaviour changes worth flagging:
 
@@ -929,8 +930,18 @@ Two soft-behaviour changes worth flagging:
 composer test
 ```
 
-111 unit tests covering these features and their non-breaking
+142 unit tests covering these features and their non-breaking
 contracts. Run via orchestra/testbench against PHP 8.1+. See `tests/`.
+
+### Benchmarks
+
+```bash
+composer bench
+```
+
+Times full list, search, API, export and edit-form requests against 5,000
+seeded rows. Each run also fingerprints the output, so an optimisation can be
+checked for changed behaviour. See [docs/performance.md](docs/performance.md).
 
 ---
 

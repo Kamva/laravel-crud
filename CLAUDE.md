@@ -62,6 +62,7 @@ src/
 │   └── Internal/BaseAction.php    # Base class for custom row actions
 ├── Columns/
 │   ├── ColumnSet.php              # Ordered columns → header/value rows (API, export, list)
+│   ├── RelationPreloader.php      # Safe eager loading for 'relation.attr' columns
 │   └── Renderers.php              # Closure helpers for addColumn(): badge, link, date…
 ├── Containers/
 │   ├── ActionContainer.php        # Row action config (route, ACL, render)
@@ -95,6 +96,7 @@ src/
         └── read_only.blade.php    # Stub: variables $field,$data
 config/kamva-crud.php              # paginate_size (CRUD_PAGINATE_SIZE)
 tests/                             # PHPUnit + Testbench; Stubs/ holds a test field
+tests/Performance/                 # Benchmarks (`composer bench`), not in the default run
 docs/                              # Per-feature guides (actions, columns, kanban…)
 ```
 
@@ -276,6 +278,12 @@ KamvaCrud::addColumnType('badge', function ($data, $col, $params, $raw) {
 - **Tests** — run `vendor/bin/phpunit`. Before refactoring, add a
   characterization test that pins the current output (see
   `RowActionsRenderTest`, `DataTablesOutputTest`).
+- **Performance** — `composer bench` (see `docs/performance.md`). For an
+  optimisation, record a baseline on `main` (`BENCH_SAVE=…`) and compare
+  (`BENCH_BASELINE=…`): the run fails if any scenario's output changes.
+  Per-row code paths (column values, the actions cell, action URLs) are the
+  hot spots. Any caching there must give byte-identical output, with a
+  fallback to the original path when that can't be guaranteed.
 - **Persian text** — user-facing messages (success/error flash, UI strings) are
   in Farsi (Persian). Do not translate them unless asked.
 - **`jdate()`** — the export filename uses a jalali date helper; this must be

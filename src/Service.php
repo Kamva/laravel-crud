@@ -27,6 +27,11 @@ class Service
         $this->columnHelpers[$name] = $callback;
     }
 
+    public function hasColumnType($name): bool
+    {
+        return isset($this->columnHelpers[$name]);
+    }
+
     public function setDefaultACLMethod(\Closure $callable)
     {
         $this->set('default_acl_method', $callable);

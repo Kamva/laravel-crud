@@ -6,6 +6,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Kamva\Crud\Actions\Internal\BaseAction;
@@ -133,10 +134,12 @@ class CRUDController extends Controller
         return $createRoute;
     }
 
-    private function getApiSingleRecord($row)
+    private function getApiSingleRecord($row, ?ColumnSet $columns = null)
     {
+        $columns ??= new ColumnSet($this->apiEntities);
+
         // array_replace (not +) so an API entity named 'id' still overrides the key, as before.
-        return array_replace(['id' => $row->id], (new ColumnSet($this->apiEntities))->keyedValues($row, true));
+        return array_replace(['id' => $row->id], $columns->keyedValues($row, true));
     }
 
     private function createApiResponseFromData($rows)
@@ -163,8 +166,10 @@ class CRUDController extends Controller
             $perPage = 15;
         }
 
-        $rows   = $rows->paginate($perPage);
-        $rows->setCollection(collect($rows->items())->map(fn ($row) => $this->getApiSingleRecord($row)));
+        $rows    = $rows->paginate($perPage);
+        $columns = new ColumnSet($this->apiEntities);
+        $columns->preloadRelations($rows->getCollection());
+        $rows->setCollection(collect($rows->items())->map(fn ($row) => $this->getApiSingleRecord($row, $columns)));
 
         return KamvaCrud::apiResponse($this->createApiResponseFromData($rows));
     }
@@ -175,7 +180,13 @@ class CRUDController extends Controller
         $columns    = new ColumnSet(empty($this->exportCols) ? $this->cols : $this->exportCols);
         $data       = [$columns->headers()];
 
-        foreach ($rows->paginate(100000)->items() as $row) {
+        // The same rows paginate(100000) returned, without its COUNT query
+        // (the total was never used). Paginator::resolveCurrentPage() is the
+        // page resolution paginate() itself uses.
+        $records    = $rows->forPage(Paginator::resolveCurrentPage('page'), 100000)->get();
+        $columns->preloadRelations($records);
+
+        foreach ($records as $row) {
             $data[] = $columns->values($row, true);
         }
 

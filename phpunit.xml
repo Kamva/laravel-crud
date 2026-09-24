@@ -3,6 +3,7 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
+         defaultTestSuite="kamva-crud"
          cacheDirectory=".phpunit.cache"
          executionOrder="random"
          failOnWarning="true"
@@ -11,7 +12,11 @@
          beStrictAboutTestsThatDoNotTestAnything="true">
     <testsuites>
         <testsuite name="kamva-crud">
-            <directory>tests</directory>
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <!-- Timing benchmarks: `composer bench` (not part of the default run). -->
+        <testsuite name="performance">
+            <directory>tests/Performance</directory>
         </testsuite>
     </testsuites>
 </phpunit>

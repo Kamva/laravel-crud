@@ -5,6 +5,7 @@ namespace Kamva\Crud\Columns;
 use ArrayIterator;
 use IteratorAggregate;
 use Kamva\Crud\Containers\ColumnContainer;
+use Kamva\Crud\KamvaCrud;
 use Traversable;
 
 /**
@@ -17,6 +18,12 @@ final class ColumnSet implements IteratorAggregate
 {
     /** @var ColumnContainer[] */
     private array $columns;
+
+    /** @var array<int, string> column index => relation that column reads */
+    private array $relationColumns = [];
+
+    /** @var array<string, array> relation => result of RelationPreloader::load() */
+    private array $preloaded = [];
 
     /**
      * @param ColumnContainer[] $columns
@@ -45,6 +52,45 @@ final class ColumnSet implements IteratorAggregate
     }
 
     /**
+     * Load the relations read by dotted columns (`'category.title'`) for a
+     * page of rows in one query each. Nothing is attached yet: values() and
+     * keyedValues() attach a row's relation right before the column that
+     * reads it, when lazy loading would have loaded it, so every row ends up
+     * exactly as before. See {@see RelationPreloader}.
+     *
+     * @param \Illuminate\Database\Eloquent\Collection|mixed $rows
+     */
+    public function preloadRelations($rows): void
+    {
+        $this->relationColumns = [];
+        $this->preloaded       = [];
+
+        foreach ($this->columns as $index => $col) {
+            if (! is_string($col->value)) {
+                continue;
+            }
+
+            // Same resolution order as ColumnContainer::getValue(): a custom
+            // column type (KamvaCrud::addColumnType()) or a column method
+            // (e.g. 'status.field') handles the value before any relation is
+            // read, so only the remaining dotted values are preloaded.
+            $segments = explode('.', $col->value);
+            $action   = $segments[1] ?? null;
+            if (empty($action) || KamvaCrud::hasColumnType($action) || method_exists($col, $action)) {
+                continue;
+            }
+
+            $this->relationColumns[$index] = $segments[0];
+        }
+
+        foreach (array_unique($this->relationColumns) as $name) {
+            if ($loaded = RelationPreloader::load($rows, $name)) {
+                $this->preloaded[$name] = $loaded;
+            }
+        }
+    }
+
+    /**
      * Column titles, in order.
      */
     public function headers(): array
@@ -57,7 +103,12 @@ final class ColumnSet implements IteratorAggregate
      */
     public function values($row, bool $raw = false): array
     {
-        return array_map(fn (ColumnContainer $col) => $col->getValue($row, $raw), $this->columns);
+        $out = [];
+        foreach ($this->columns as $index => $col) {
+            $out[] = $this->value($index, $col, $row, $raw);
+        }
+
+        return $out;
     }
 
     /**
@@ -68,10 +119,43 @@ final class ColumnSet implements IteratorAggregate
     public function keyedValues($row, bool $raw = false): array
     {
         $out = [];
-        foreach ($this->columns as $col) {
-            $out[$col->getName()] = $col->getValue($row, $raw);
+        foreach ($this->columns as $index => $col) {
+            $out[$col->getName()] = $this->value($index, $col, $row, $raw);
         }
 
         return $out;
+    }
+
+    private function value(int $index, ColumnContainer $col, $row, bool $raw)
+    {
+        if (isset($this->relationColumns[$index])) {
+            $this->attachPreloaded($this->relationColumns[$index], $row);
+        }
+
+        return $col->getValue($row, $raw);
+    }
+
+    private function attachPreloaded(string $name, $row): void
+    {
+        if (! isset($this->preloaded[$name]) || ! is_object($row)) {
+            return;
+        }
+
+        $loaded = &$this->preloaded[$name];
+        $id     = spl_object_id($row);
+        $entry  = $loaded['rows'][$id] ?? null;
+        if ($entry === null || $entry[0] !== $row) {
+            return;
+        }
+
+        unset($loaded['rows'][$id]);
+
+        // Skip if something loaded it meanwhile, or changed the row's key
+        // (lazy loading would read the new key).
+        if ($row->relationLoaded($name) || $row->getAttribute($loaded['rowKey']) !== $entry[1]) {
+            return;
+        }
+
+        $row->setRelation($name, RelationPreloader::hydrate($loaded['related'], $loaded['connection'], $entry[2]));
     }
 }

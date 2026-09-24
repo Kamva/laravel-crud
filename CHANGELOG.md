@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No breaking changes and nothing to change in your app. See
+[docs/performance.md](docs/performance.md) for details and measurements.
+
+### Performance
+
+- **Relation columns are eager-loaded.** Dotted columns such as
+  `'category.title'` used to run one query per row in the list JSON, the API
+  index and the export (5,000 queries for a 5,000-row export). The relation
+  is now fetched for the whole page in one query (per 1,000 rows), and each
+  row ends up exactly as lazy loading would have left it: the relation is
+  attached when its column is evaluated, and every row gets its own
+  instance, hydrated like a lazy load (`retrieved` events included). It is
+  only used where the result is guaranteed identical: Laravel's own to-one
+  relations whose definition doesn't depend on the row, whose query eager
+  loading reproduces (no limit, joins, `orWhere`, raw wheres, nested eager
+  loads, `afterQuery()` or `chaperone()`), with keys PHP and the database
+  compare the same way (no case-insensitive or type-coerced matches), and not
+  for custom column types. Anything else, including rows without a match on
+  a relation with `withDefault()` and rows whose key an earlier column
+  changed, keeps loading lazily.
+- **Row-action URLs** are built from a per-action template for plain values
+  (ids, UUIDs, simple slugs) instead of calling `route()` for every action on
+  every row. Other values, custom URL generators and URL formatting callbacks still
+  use `route()`.
+- **Action `render` lookups** (`view()->exists()`) run once per request
+  instead of once per row, which previously probed the filesystem each time
+  for icon HTML strings.
+- **`'field.field'` columns** find their form field through an index.
+- **Export** no longer runs an unused `COUNT(*)` query.
+
+Benchmark medians (5,000 rows, SQLite, opcache): list page 32.4 → 15.8 ms,
+API index 13.4 → 8.2 ms, export 557 → 315 ms. Queries per list page 103 → 4,
+per export 5,002 → 6.
+
+### Added
+
+- `KamvaCrud::hasColumnType($name)`.
+- Benchmark suite (`composer bench`, `tests/Performance`). It fingerprints
+  each scenario's output and can fail a run whose output differs from a
+  baseline.
+
 ## [2.0.0] - 2026-09-23
 
 Major version because PHP 8.1 is now required (see **Breaking changes**).

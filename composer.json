@@ -28,7 +28,8 @@
             "Kamva\\Crud\\Tests\\": "tests/"
         },
         "classmap": [
-            "tests/Stubs"
+            "tests/Stubs",
+            "tests/Performance/Fixtures.php"
         ]
     },
     "extra": {
@@ -39,6 +40,7 @@
         }
     },
     "scripts": {
-        "test": "vendor/bin/phpunit"
+        "test": "vendor/bin/phpunit",
+        "bench": "@php -d opcache.enable_cli=1 vendor/bin/phpunit --testsuite performance --order-by=default --no-progress"
     }
 }
