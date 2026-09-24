@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No breaking changes. One behaviour change in the Excel export is worth
+checking (see **Changed**). Two changes are opt-in or apply only to the
+list view you implement.
+
+### Added
+
+- **`KamvaCrud::setActionAclMode('and')`** (#31). A row action's own access
+  closure normally replaces the default ACL method (`setDefaultACLMethod()`),
+  so adding a row condition ("only unlocked rows") also dropped the
+  permission check. In `'and'` mode both must allow the action. The default
+  stays `'replace'`, so nothing changes unless you opt in. See
+  [docs/actions.md](docs/actions.md#access-control).
+- **`$unsortableColumns` list view variable** (#30): the DataTables indexes
+  of columns with no database column of their own (Closure, relation and
+  accessor columns). Pass them to `columnDefs` as `orderable: false`; see the
+  README's list view example.
+- **`KamvaCrud::flushRequestState()`** (#33), called by
+  `CRUDController::init()`.
+
+### Changed
+
+- **Excel export writes text as text** (#32). Strings were written by
+  PhpSpreadsheet's default binder, which turned numeric-looking text into
+  numbers (`'+13208600048'` lost its `+`, codes over 15 digits lost digits in
+  Excel, `'1e5'` became 100000), `=`-prefixed text into live formulas and
+  `'#N/A'` into error cells. Now strings are text, except plain decimal
+  numbers Excel holds exactly (`'42'`, `'-3.50'`), which stay numeric so sums
+  over DECIMAL columns keep working. Integers over 15 digits are written as
+  text. If a spreadsheet relied on other numeric-looking strings becoming
+  numbers, those cells are now text.
+
+### Fixed
+
+- **Controllers serving more than one request** (#33): Octane, RoadRunner and
+  Swoole workers, and feature tests that make several requests. Laravel keeps
+  a route's controller instance, and `setup()` only appends, so the second
+  request rendered every column and action twice. `init()` now rebuilds the
+  definition from its state before the first `setup()` (state set in a
+  subclass constructor is kept). Select options, the edited record and the
+  active controller are no longer kept in the `kamva-crud` singleton between
+  requests. After Octane flushed the route's controller on Laravel 8 and 9,
+  the next request returned a 500 (`Application::newQuery does not exist`);
+  the init middleware now initialises the controller handling the request.
+- **List search and sort skip accessor columns** (#30). 2.2.0 left out
+  Closure and relation columns, but accessor and appended attributes
+  (`'full_name'`) and column types on a relation (`'owner.badge'`) were still
+  queried by name: a 500 on Postgres and MySQL. Names the model resolves
+  itself are now checked against the table's real columns (listed once per
+  table per app instance; MongoDB keeps the name). Plain column names are
+  used as before, with no extra query.
+
+### Internal
+
+- The test suite passes on Laravel 10 (#34), and CI tests PHP 8.1
+  (Laravel 10) again, alongside PHP 8.2 and 8.4 (Laravel 11).
+
 ## [2.2.0] - 2026-09-24
 
 Postgres support release. No breaking changes for documented usage, but
