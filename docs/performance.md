@@ -14,27 +14,37 @@ A dotted column such as `addColumn('Category', 'category.title')` reads a
 relation for every row. With lazy loading that is one query per row: 100
 queries for a list page, 5,000 for a 5,000-row export.
 
-The list JSON, API index and export now load those relations for the whole
-page in one query per relation. A relation is only preloaded when the result is
-guaranteed to be the same as lazy loading:
+The list JSON, API index and export now fetch those relations for the whole
+page in one query per relation (in chunks of 1,000 rows). Every row ends up
+exactly as lazy loading would have left it:
+
+- The relation is attached to a row just before the column that reads it is
+  evaluated, the moment lazy loading would have loaded it. Columns, closures
+  and `toArray()` calls that run earlier see the row as before.
+- Each row gets its own model instance, hydrated from the database row the
+  same way a lazy load does, so `retrieved` events fire once per row too.
+
+A relation is only preloaded when the result is guaranteed to be the same:
 
 - it is a to-one relation (`belongsTo`, `hasOne`, `morphOne`), reached through
   the relation method rather than an attribute, cast or accessor with the same
-  name;
+  name, and without nested eager loads (e.g. the related model's `$with`) or
+  an inverse (`chaperone()`);
 - its definition does not depend on the row. A relation such as
   `->where('currency', $this->currency)`, or one that picks a different model
   depending on a column, keeps loading lazily;
-- every row has at most one matching record. With duplicate matches (e.g. a
-  `hasOne` that actually has several rows) lazy loading's "first match" is kept;
+- the related keys are integers, or lowercase ASCII strings matched against
+  string keys, and none is duplicated. Other keys could compare differently in
+  the database than in PHP (case-insensitive collations, `'007'` against `7`)
+  or match ambiguously;
 - the column is not handled by a custom column type
   (`KamvaCrud::addColumnType()`), which decides for itself what it loads.
 
-Rows that have no related record fall back to lazy loading when the relation
-has a `withDefault()`, because the default may be built from the row itself.
-
-Each row still gets its own instance of the related model. The one observable
-difference: `retrieved` model events and observers on the related model fire
-once per distinct record, instead of once per row.
+Per row, a preloaded record is only used when the keys are exactly equal. A
+row without one loads lazily unless the absence is certain (for example
+integer keys that the query did not return), and so does a row without a
+record on a relation with `withDefault()`, because the default may be built
+from the row itself.
 
 Relations read inside Closure columns are not detected. If a Closure column
 reads `$row->author->name`, eager-load the relation yourself by overriding
@@ -100,16 +110,17 @@ machine; query counts are exact.
 ## Results
 
 Measured on the benchmark suite (PHP 8.4, Laravel 11, SQLite in memory,
-opcache on, 30 iterations, median), `2.0.0` against these changes. Timings
-vary by about ±15% between runs; query counts are exact.
+opcache on, 30 iterations), `2.0.0` against these changes. Each figure is the
+average of the medians of two interleaved before/after runs. Timings vary by
+about ±15% between runs; query counts are exact.
 
 | Scenario | Before | After | Queries before → after |
 |---|---|---|---|
-| List page, 100 rows | 42.7 ms | 14.4 ms (−66%) | 103 → 4 |
-| List search, 25 rows | 13.9 ms | 8.9 ms (−36%) | 28 → 4 |
-| API index, 100 rows | 12.8 ms | 8.7 ms (−32%) | 102 → 3 |
-| Export, 5,000 rows | 516 ms | 266 ms (−48%) | 5,002 → 2 |
-| Edit form | 1.24 ms | 0.65 ms (−48%) | 2 → 2 |
+| List page, 100 rows | 31.9 ms | 16.0 ms (−50%) | 103 → 4 |
+| List search, 25 rows | 13.8 ms | 8.6 ms (−38%) | 28 → 4 |
+| API index, 100 rows | 12.5 ms | 8.7 ms (−31%) | 102 → 3 |
+| Export, 5,000 rows | 550 ms | 312 ms (−43%) | 5,002 → 6 |
+| Edit form | 0.6 ms | 0.7 ms (within noise) | 2 → 2 |
 
 Peak memory for the export dropped from 19 MB to 14 MB.
 

@@ -36,6 +36,12 @@ abstract class BenchmarkCase extends TestCase
 
     private int $queries = 0;
 
+    /** Results of this run so far; latest.json is rewritten from scratch each run. */
+    private static ?array $run = null;
+
+    /** Scenarios from BENCH_BASELINE, read once before anything is written. */
+    private static ?array $baseline = null;
+
     protected function defineRoutes($router): void
     {
         $router->get('bench/products/{id}', fn () => '')->name('bench.products.show');
@@ -172,17 +178,18 @@ abstract class BenchmarkCase extends TestCase
 
     private function record(string $scenario, array $result): void
     {
-        $all = is_file(self::RESULTS) ? json_decode(file_get_contents(self::RESULTS), true) : [];
-        $all['php']       = PHP_VERSION;
-        $all['laravel']   = $this->app->version();
-        $all['scenarios'][$scenario] = $result;
-        ksort($all['scenarios']);
+        $baseline = $this->baseline();
 
+        self::$run ??= ['php' => PHP_VERSION, 'laravel' => $this->app->version(), 'scenarios' => []];
+        self::$run['scenarios'][$scenario] = $result;
+        ksort(self::$run['scenarios']);
+
+        $json = json_encode(self::$run, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
         @mkdir(dirname(self::RESULTS), 0777, true);
-        file_put_contents(self::RESULTS, json_encode($all, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+        file_put_contents(self::RESULTS, $json);
 
         if ($save = getenv('BENCH_SAVE')) {
-            copy(self::RESULTS, $save);
+            file_put_contents($save, $json);
         }
 
         $line = sprintf(
@@ -190,12 +197,11 @@ abstract class BenchmarkCase extends TestCase
             $scenario, $result['median_ms'], $result['min_ms'], $result['p90_ms'], $result['queries'], $result['peak_mem_kb']
         );
 
-        $baselineFile = getenv('BENCH_BASELINE');
-        $baseline     = $baselineFile && is_file($baselineFile)
-            ? (json_decode(file_get_contents($baselineFile), true)['scenarios'][$scenario] ?? null)
-            : null;
+        $baseline = $baseline === null ? null : ($baseline[$scenario] ?? false);
 
-        if ($baseline) {
+        if ($baseline === false) {
+            $line .= '   (no baseline entry for this scenario)';
+        } elseif ($baseline) {
             $line .= sprintf(
                 "   vs baseline: %+.1f%% time, %+d queries",
                 ($result['median_ms'] / $baseline['median_ms'] - 1) * 100,
@@ -205,12 +211,45 @@ abstract class BenchmarkCase extends TestCase
 
         fwrite(STDERR, $line . "\n");
 
-        if ($baseline) {
+        if (is_array($baseline)) {
             $this->assertSame(
                 $baseline['fingerprint'],
                 $result['fingerprint'],
                 "Output of scenario [{$scenario}] differs from the baseline: an optimisation changed behaviour."
             );
         }
+    }
+
+    /**
+     * @return array<string, array>|null Baseline scenarios, or null when BENCH_BASELINE is not set.
+     */
+    private function baseline(): ?array
+    {
+        $file = getenv('BENCH_BASELINE');
+        if (! $file) {
+            return null;
+        }
+
+        if (self::$baseline === null) {
+            $save = getenv('BENCH_SAVE');
+            $this->assertFalse(
+                $save && $this->samePath($save, $file),
+                'BENCH_SAVE and BENCH_BASELINE are the same file: the run would be compared with itself.'
+            );
+            $this->assertFileExists($file, "BENCH_BASELINE file [{$file}] not found.");
+
+            $scenarios = json_decode((string) file_get_contents($file), true)['scenarios'] ?? null;
+            $this->assertIsArray($scenarios, "BENCH_BASELINE file [{$file}] has no scenarios.");
+            self::$baseline = $scenarios;
+        }
+
+        return self::$baseline;
+    }
+
+    private function samePath(string $a, string $b): bool
+    {
+        $normalise = fn ($path) => (realpath(dirname($path)) ?: dirname($path)) . '/' . basename($path);
+
+        return $normalise($a) === $normalise($b);
     }
 }

@@ -134,10 +134,12 @@ class CRUDController extends Controller
         return $createRoute;
     }
 
-    private function getApiSingleRecord($row)
+    private function getApiSingleRecord($row, ?ColumnSet $columns = null)
     {
+        $columns ??= new ColumnSet($this->apiEntities);
+
         // array_replace (not +) so an API entity named 'id' still overrides the key, as before.
-        return array_replace(['id' => $row->id], (new ColumnSet($this->apiEntities))->keyedValues($row, true));
+        return array_replace(['id' => $row->id], $columns->keyedValues($row, true));
     }
 
     private function createApiResponseFromData($rows)
@@ -164,9 +166,10 @@ class CRUDController extends Controller
             $perPage = 15;
         }
 
-        $rows   = $rows->paginate($perPage);
-        (new ColumnSet($this->apiEntities))->preloadRelations($rows->getCollection());
-        $rows->setCollection(collect($rows->items())->map(fn ($row) => $this->getApiSingleRecord($row)));
+        $rows    = $rows->paginate($perPage);
+        $columns = new ColumnSet($this->apiEntities);
+        $columns->preloadRelations($rows->getCollection());
+        $rows->setCollection(collect($rows->items())->map(fn ($row) => $this->getApiSingleRecord($row, $columns)));
 
         return KamvaCrud::apiResponse($this->createApiResponseFromData($rows));
     }

@@ -26,6 +26,7 @@ class RelationPreloadTest extends TestCase
             $table->increments('id');
             $table->string('name');
             $table->string('currency')->nullable();
+            $table->string('code')->collation('NOCASE')->nullable();
             $table->timestamps();
         });
         Schema::create('rp_items', function ($table) {
@@ -35,6 +36,8 @@ class RelationPreloadTest extends TestCase
             $table->string('currency')->nullable();
             $table->string('kind')->nullable();
             $table->string('label')->nullable();
+            $table->string('owner_code')->nullable();
+            $table->string('owner_ref')->nullable();
             $table->timestamps();
         });
 
@@ -45,8 +48,8 @@ class RelationPreloadTest extends TestCase
             $table->timestamps();
         });
 
-        foreach ([['Ann', 'EUR'], ['Bob', 'USD'], ['Cid', null]] as [$name, $currency]) {
-            RpOwner::create(['name' => $name, 'currency' => $currency]);
+        foreach ([['Ann', 'EUR', 'ann'], ['Bob', 'USD', 'bob'], ['Cid', null, 'cid']] as [$name, $currency, $code]) {
+            RpOwner::create(['name' => $name, 'currency' => $currency, 'code' => $code]);
         }
         foreach (range(1, 12) as $i) {
             RpItem::create([
@@ -55,6 +58,10 @@ class RelationPreloadTest extends TestCase
                 'currency' => ['EUR', 'USD', null][$i % 3],
                 'kind'     => $i % 2 ? 'owner' : 'other',
                 'label'    => "label-{$i}",
+                // Mixed case: matches the lowercase codes only case-insensitively.
+                'owner_code' => [null, 'ann', 'BOB', 'Cid'][$i % 4],
+                // Zero-padded: matches the integer ids only after type coercion.
+                'owner_ref'  => $i % 2 ? '00' . (($i % 3) + 1) : (string) (($i % 3) + 1),
             ]);
         }
     }
@@ -182,6 +189,104 @@ class RelationPreloadTest extends TestCase
         $this->assertGreaterThan(10, $queries, 'the column type decides what it loads');
     }
 
+    public function test_keys_the_database_compares_differently_match_lazy_loading(): void
+    {
+        foreach (['ownerByCode', 'ownerByRef'] as $relation) {
+            [$data] = $this->draw(fn (CRUDController $c) => $c->addColumn('Owner', "{$relation}.name"));
+
+            $expected = $this->lazyValues(fn ($item) => $item->$relation?->name);
+            $this->assertSame($expected, array_column($data, 1), $relation);
+            $this->assertGreaterThan(6, count(array_filter($expected)), "{$relation}: lazy loading finds these");
+        }
+    }
+
+    public function test_uppercase_related_keys_are_not_preloaded(): void
+    {
+        RpOwner::where('name', 'Cid')->update(['code' => 'CID']);
+
+        [$data, $queries] = $this->draw(fn (CRUDController $c) => $c->addColumn('Owner', 'ownerByCode.name'));
+
+        $this->assertSame($this->lazyValues(fn ($item) => $item->ownerByCode?->name), array_column($data, 1));
+        $this->assertGreaterThan(8, $queries);
+    }
+
+    public function test_relation_is_attached_when_its_column_is_evaluated(): void
+    {
+        $probe = fn ($row) => ($row->relationLoaded('owner') ? 'loaded' : 'not loaded')
+            . '|' . (array_key_exists('owner', $row->toArray()) ? 'in array' : 'not in array');
+
+        [$data] = $this->draw(function (CRUDController $c) use ($probe) {
+            $c->addColumn('Before', $probe);
+            $c->addColumn('Owner', 'owner.name');
+            $c->addColumn('After', $probe);
+        });
+
+        $withOwner = array_filter($data, fn ($row) => $row[2] !== null);
+        $this->assertSame(['not loaded|not in array'], array_values(array_unique(array_column($data, 1))));
+        $this->assertSame(['loaded|in array'], array_values(array_unique(array_column($withOwner, 3))));
+    }
+
+    public function test_retrieved_events_fire_once_per_row_like_lazy_loading(): void
+    {
+        $count = 0;
+        RpOwner::retrieved(function () use (&$count) {
+            $count++;
+        });
+
+        $this->lazyValues(fn ($item) => $item->owner?->name);
+        $lazy  = $count;
+        $count = 0;
+
+        $this->draw(fn (CRUDController $c) => $c->addColumn('Owner', 'owner.name'));
+
+        $this->assertSame($lazy, $count);
+    }
+
+    public function test_rows_get_independent_instances_hydrated_from_the_database(): void
+    {
+        [$data] = $this->draw(function (CRUDController $c) {
+            $c->addColumn('Owner', 'owner.name');
+            $c->addColumn('Same', function ($row) {
+                static $seen = [];
+                $id = $row->owner ? spl_object_id($row->owner) : null;
+                $dup = $id !== null && isset($seen[$id]);
+                $seen[$id] = true;
+
+                return $dup ? 'shared' : 'own';
+            });
+        });
+
+        $this->assertNotContains('shared', array_column($data, 2));
+    }
+
+    public function test_relations_with_nested_eager_loads_or_an_inverse_stay_lazy(): void
+    {
+        foreach (range(1, 12) as $id) {
+            RpNote::create(['item_id' => $id, 'body' => "note {$id}"]);
+        }
+
+        foreach (['noteWithInverse', 'noteWithNestedEagerLoad'] as $relation) {
+            [$data, $queries] = $this->draw(fn (CRUDController $c) => $c->addColumn('Note', "{$relation}.body"));
+
+            $this->assertSame($this->lazyValues(fn ($item) => $item->$relation?->body), array_column($data, 1), $relation);
+            $this->assertGreaterThan(10, $queries, $relation);
+        }
+    }
+
+    public function test_large_pages_are_loaded_in_chunks(): void
+    {
+        foreach (range(13, 2600) as $i) {
+            RpItem::create(['title' => "Item {$i}", 'owner_code' => ['ann', 'bob', 'cid'][$i % 3]]);
+        }
+
+        [$data, $queries] = $this->draw(fn (CRUDController $c) => $c->addColumn('Owner', 'ownerByCode.name'), 3000);
+
+        $this->assertCount(2600, $data);
+        $this->assertSame($this->lazyValues(fn ($item) => $item->ownerByCode?->name), array_column($data, 1));
+        // rows + 2 counts + 3 chunks, plus lazy loads for the 9 mixed-case rows.
+        $this->assertLessThanOrEqual(3 + 3 + 9, $queries);
+    }
+
     public function test_api_index_preloads_and_matches_lazy_values(): void
     {
         $controller = $this->controller(fn (CRUDController $c) => $c->addApiEntity('owner', 'owner.name'));
@@ -225,11 +330,11 @@ class RelationPreloadTest extends TestCase
         }
     }
 
-    private function draw(\Closure $columns): array
+    private function draw(\Closure $columns, int $length = 50): array
     {
         $controller = $this->controller($columns);
         $request    = Request::create('/items', 'GET', [
-            'start' => 0, 'length' => 50, 'draw' => '1',
+            'start' => 0, 'length' => $length, 'draw' => '1',
             'order' => [['column' => 0, 'dir' => 'asc']],
         ], [], [], ['HTTP_ACCEPT' => 'application/json']);
         $this->app->instance('request', $request);
@@ -282,6 +387,23 @@ class RpNote extends Model
 {
     protected $table = 'rp_notes';
     protected $guarded = [];
+
+    public function item()
+    {
+        return $this->belongsTo(RpItem::class, 'item_id');
+    }
+}
+
+class RpNoteWithItem extends Model
+{
+    protected $table = 'rp_notes';
+    protected $guarded = [];
+    protected $with = ['item'];
+
+    public function item()
+    {
+        return $this->belongsTo(RpItem::class, 'item_id');
+    }
 }
 
 class RpOwner extends Model
@@ -348,6 +470,26 @@ class RpItem extends Model
     public function note()
     {
         return $this->hasOne(RpNote::class, 'item_id');
+    }
+
+    public function ownerByCode()
+    {
+        return $this->belongsTo(RpOwner::class, 'owner_code', 'code');
+    }
+
+    public function ownerByRef()
+    {
+        return $this->belongsTo(RpOwner::class, 'owner_ref');
+    }
+
+    public function noteWithInverse()
+    {
+        return $this->hasOne(RpNote::class, 'item_id')->chaperone('item');
+    }
+
+    public function noteWithNestedEagerLoad()
+    {
+        return $this->hasOne(RpNoteWithItem::class, 'item_id');
     }
 
     public function siblings()

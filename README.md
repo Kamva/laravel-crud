@@ -930,7 +930,7 @@ Two soft-behaviour changes worth flagging:
 composer test
 ```
 
-132 unit tests covering these features and their non-breaking
+139 unit tests covering these features and their non-breaking
 contracts. Run via orchestra/testbench against PHP 8.1+. See `tests/`.
 
 ### Benchmarks

@@ -15,15 +15,16 @@ No breaking changes and nothing to change in your app. See
 - **Relation columns are eager-loaded.** Dotted columns such as
   `'category.title'` used to run one query per row in the list JSON, the API
   index and the export (5,000 queries for a 5,000-row export). The relation
-  is now loaded for the whole page in one query. This only happens when it
-  gives exactly the lazy-loading result: to-one relations whose definition
-  doesn't depend on the row and that have at most one match per row, and not
-  for custom column types. Rows without a match on a relation with
-  `withDefault()` also keep loading lazily, since the default may be built
-  from the row. Everything else keeps loading lazily. Each row
-  still gets its own related model instance. One observable difference:
-  `retrieved` events on the related model fire once per distinct record
-  instead of once per row.
+  is now fetched for the whole page in one query (per 1,000 rows), and each
+  row ends up exactly as lazy loading would have left it: the relation is
+  attached when its column is evaluated, and every row gets its own
+  instance, hydrated like a lazy load (`retrieved` events included). It is
+  only used where the result is guaranteed identical: to-one relations
+  whose definition doesn't depend on the row, without nested eager loads or
+  `chaperone()`, with keys PHP and the database compare the same way (no
+  case-insensitive or type-coerced matches), and not for custom column
+  types. Anything else, including rows without a match on a relation with
+  `withDefault()`, keeps loading lazily.
 - **Row-action URLs** are built from a per-action template for plain
   alphanumeric values instead of calling `route()` for every action on every
   row. Other values, custom URL generators and URL formatting callbacks still
@@ -34,9 +35,9 @@ No breaking changes and nothing to change in your app. See
 - **`'field.field'` columns** find their form field through an index.
 - **Export** no longer runs an unused `COUNT(*)` query.
 
-Benchmark medians (5,000 rows, SQLite, opcache): list page 42.7 → 14.4 ms,
-API index 12.8 → 8.7 ms, export 516 → 266 ms. Queries per list page 103 → 4,
-per export 5,002 → 2.
+Benchmark medians (5,000 rows, SQLite, opcache): list page 31.9 → 16.0 ms,
+API index 12.5 → 8.7 ms, export 550 → 312 ms. Queries per list page 103 → 4,
+per export 5,002 → 6.
 
 ### Added
 

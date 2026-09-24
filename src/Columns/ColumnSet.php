@@ -19,6 +19,15 @@ final class ColumnSet implements IteratorAggregate
     /** @var ColumnContainer[] */
     private array $columns;
 
+    /** @var array<int, string> column index => relation that column reads */
+    private array $relationColumns = [];
+
+    /** @var array<string, array> relation => map from RelationPreloader::load() */
+    private array $preloaded = [];
+
+    /** @var array<string, array<int, true>> relation => loaded models already attached */
+    private array $handedOut = [];
+
     /**
      * @param ColumnContainer[] $columns
      */
@@ -46,16 +55,21 @@ final class ColumnSet implements IteratorAggregate
     }
 
     /**
-     * Eager-load the relations read by dotted columns (`'category.title'`)
-     * for a page of rows, where that gives the same values as lazy loading.
-     * See {@see RelationPreloader}.
+     * Load the relations read by dotted columns (`'category.title'`) for a
+     * page of rows in one query each. Nothing is attached yet: values() and
+     * keyedValues() attach a row's relation right before the column that
+     * reads it, when lazy loading would have loaded it, so every row ends up
+     * exactly as before. See {@see RelationPreloader}.
      *
      * @param \Illuminate\Database\Eloquent\Collection|mixed $rows
      */
     public function preloadRelations($rows): void
     {
-        $names = [];
-        foreach ($this->columns as $col) {
+        $this->relationColumns = [];
+        $this->preloaded       = [];
+        $this->handedOut       = [];
+
+        foreach ($this->columns as $index => $col) {
             if (! is_string($col->value)) {
                 continue;
             }
@@ -70,11 +84,14 @@ final class ColumnSet implements IteratorAggregate
                 continue;
             }
 
-            $names[$segments[0]] = $segments[0];
+            $this->relationColumns[$index] = $segments[0];
         }
 
-        if ($names) {
-            RelationPreloader::preload($rows, array_values($names));
+        foreach (array_unique($this->relationColumns) as $name) {
+            if ($map = RelationPreloader::load($rows, $name)) {
+                $this->preloaded[$name] = $map;
+                $this->handedOut[$name] = [];
+            }
         }
     }
 
@@ -91,7 +108,12 @@ final class ColumnSet implements IteratorAggregate
      */
     public function values($row, bool $raw = false): array
     {
-        return array_map(fn (ColumnContainer $col) => $col->getValue($row, $raw), $this->columns);
+        $out = [];
+        foreach ($this->columns as $index => $col) {
+            $out[] = $this->value($index, $col, $row, $raw);
+        }
+
+        return $out;
     }
 
     /**
@@ -102,10 +124,38 @@ final class ColumnSet implements IteratorAggregate
     public function keyedValues($row, bool $raw = false): array
     {
         $out = [];
-        foreach ($this->columns as $col) {
-            $out[$col->getName()] = $col->getValue($row, $raw);
+        foreach ($this->columns as $index => $col) {
+            $out[$col->getName()] = $this->value($index, $col, $row, $raw);
         }
 
         return $out;
+    }
+
+    private function value(int $index, ColumnContainer $col, $row, bool $raw)
+    {
+        if (isset($this->relationColumns[$index])) {
+            $this->attachPreloaded($this->relationColumns[$index], $row);
+        }
+
+        return $col->getValue($row, $raw);
+    }
+
+    private function attachPreloaded(string $name, $row): void
+    {
+        if (! isset($this->preloaded[$name]) || ! is_object($row)) {
+            return;
+        }
+
+        $id    = spl_object_id($row);
+        $entry = $this->preloaded[$name][$id] ?? null;
+        if ($entry === null || $entry[0] !== $row) {
+            return;
+        }
+
+        unset($this->preloaded[$name][$id]);
+
+        if (! $row->relationLoaded($name)) {
+            $row->setRelation($name, RelationPreloader::instanceFor($entry[1], $this->handedOut[$name]));
+        }
     }
 }

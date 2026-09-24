@@ -16,7 +16,7 @@ class ActionContainer
     private ?\Closure   $accessControlMethod;
     private array       $options    = [];
     private array       $parameters = [];
-    private array       $renderIsView = [];
+    private ?bool       $renderIsView = null;
 
     /** @var array{0:string,1:array}|false|null URL with placeholders, false when disabled. */
     private $urlTemplate = null;
@@ -51,17 +51,18 @@ class ActionContainer
      */
     public function setRender(string $render): void
     {
-        $this->render = $render;
+        $this->render       = $render;
+        $this->renderIsView = null;
     }
 
     public function getRender($data)
     {
-        // Cache the lookup per render string: this runs for every action on
-        // every row, and a miss (the usual case, an icon HTML string) is not
-        // cached by the view finder, so each call probed the filesystem.
-        $isView = $this->renderIsView[$this->render] ??= view()->exists($this->render);
+        // Cached (reset by setRender()): this runs for every action on every
+        // row, and a miss (the usual case, an icon HTML string) is not cached
+        // by the view finder, so each call probed the filesystem.
+        $this->renderIsView ??= view()->exists($this->render);
 
-        return $isView ? view($this->render, compact('data')) : $this->render;
+        return $this->renderIsView ? view($this->render, compact('data')) : $this->render;
     }
 
     /**
@@ -148,10 +149,6 @@ class ActionContainer
         }
 
         [$template, $placeholders] = $this->urlTemplate;
-
-        if (array_keys($placeholders) !== $rowKeys) {
-            return null;
-        }
 
         $replace = [];
         foreach ($placeholders as $key => $placeholder) {
