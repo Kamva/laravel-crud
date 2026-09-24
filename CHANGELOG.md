@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-24
+
 No breaking changes. One behaviour change in the Excel export is worth
 checking (see **Changed**). Two changes are opt-in or apply only to the
-list view you implement.
+list view you implement. Shipped in #35.
 
 ### Added
 
@@ -43,17 +45,19 @@ list view you implement.
 ### Fixed
 
 - **Controllers serving more than one request** (#33): Octane, RoadRunner and
-  Swoole workers, and feature tests that make several requests. Laravel keeps
-  a route's controller instance, and `setup()` only appends, so the second
-  request rendered every column and action twice. `init()` now rebuilds the
-  definition from its state before the first `setup()` (state set in a
-  subclass constructor is kept). Select options, the edited record and the
-  active controller are no longer kept in the `kamva-crud` singleton between
-  requests (they are cleared once per request, so a second controller
-  initialised during the same request keeps them). When a route's controller was replaced but the middleware it had
-  gathered was kept, the next request returned a 500
-  (`Application::newQuery does not exist`); the init middleware now
-  initialises the controller handling the request.
+  Swoole workers, and feature tests that make several requests.
+  - Laravel keeps a route's controller instance and `setup()` only appends,
+    so the second request rendered every column and action twice. `init()`
+    now rebuilds the definition from its state before the first `setup()`
+    (state set in a subclass constructor is kept).
+  - Select options, the edited record and the active controller are no
+    longer kept in the `kamva-crud` singleton between requests. They are
+    cleared once per request, so a second controller initialised during the
+    same request keeps them.
+  - When a route's controller was replaced but the middleware it had
+    gathered was kept, the next request returned a 500
+    (`Application::newQuery does not exist`). The init middleware now
+    initialises the controller handling the request.
 - **List search and sort skip accessor columns** (#30). 2.2.0 left out
   Closure and relation columns, but accessor and appended attributes
   (`'full_name'`) and column types on a relation (`'owner.badge'`) were still
@@ -129,8 +133,8 @@ No breaking changes and nothing to change in your app. Shipped in #27. See
   changed, keeps loading lazily.
 - **Row-action URLs** are built from a per-action template for plain values
   (ids, UUIDs, simple slugs) instead of calling `route()` for every action on
-  every row. Other values, custom URL generators and URL formatting callbacks still
-  use `route()`.
+  every row. Other values, custom URL generators and URL formatting callbacks
+  still use `route()`.
 - **Action `render` lookups** (`view()->exists()`) run once per request
   instead of once per row, which previously probed the filesystem each time
   for icon HTML strings.
@@ -295,7 +299,8 @@ review them before upgrading.
   hydrating every matching row into models on each draw — preserving
   `distinct()` / `groupBy()` semantics without the memory/latency cost.
 
-[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/Kamva/laravel-crud/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/Kamva/laravel-crud/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/Kamva/laravel-crud/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Kamva/laravel-crud/compare/v1.0.0...v2.0.0
