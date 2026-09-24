@@ -77,7 +77,9 @@ class LongLivedControllerTest extends TestCase
         LlCategory::create(['title' => 'Nuts']);
         LlItem::create(['name' => 'almond', 'category_id' => 2]);
 
-        $this->assertSame(
+        // Default order is created_at, which ties within a second: compare
+        // without order.
+        $this->assertEqualsCanonicalizing(
             ['Fruit', 'Nuts'],
             array_column($this->getJson(self::LIST)->assertOk()->json('data'), 2)
         );
