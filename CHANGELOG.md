@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Major version: two breaking changes, held back from 2.3.0.
+
+### ⚠️ Breaking changes
+
+- **A row action's own access closure narrows the permission check** (#31).
+  `KamvaCrud::setActionAclMode()` now defaults to `'and'`: with a default ACL
+  method (`setDefaultACLMethod()`), an action is shown only if both the
+  default method and the action's closure allow it. Before, the closure
+  replaced the default method, so a row condition ("only unlocked rows")
+  showed the button to users without the permission. **To keep the old rule**,
+  call `KamvaCrud::setActionAclMode('replace')` next to
+  `setDefaultACLMethod()`. Apps without a default ACL method are not affected.
+- **Laravel 10, 11 or 12 is required** (#34). `composer.json` allowed Laravel
+  6 and up, but only 10 and 11 were tested. Apps on Laravel 6 to 9 stay on
+  2.x. PHP 8.1 is still enough for Laravel 10; Laravel 11 and 12 need 8.2.
+
+### Added
+
+- **Laravel 12 support** (#34), tested in CI.
+
+### Internal
+
+- CI tests Laravel 10 (PHP 8.1), 11 (PHP 8.2) and 12 (PHP 8.4), each on
+  SQLite and Postgres 16.
+- Dev dependencies: orchestra/testbench `^8|^9|^10`, PHPUnit `^10.5|^11|^12`.
+  The one `@dataProvider` docblock is now a `#[DataProvider]` attribute.
+
 ## [2.3.0] - 2026-09-24
 
 No breaking changes. One behaviour change in the Excel export is worth
