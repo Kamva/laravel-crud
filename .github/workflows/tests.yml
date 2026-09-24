@@ -13,7 +13,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.1', '8.4']
+        # 8.1 resolves to Laravel 10, where some fixtures in
+        # RelationPreloadTest use Laravel 11-only APIs (chaperone(),
+        # afterQuery()); 8.2+ resolves to Laravel 11.
+        php: ['8.2', '8.4']
         db: [sqlite, pgsql]
 
     services:
@@ -47,8 +50,12 @@ jobs:
           extensions: pdo_sqlite, pdo_pgsql
           coverage: none
 
+      # No lock file: resolve the newest dev dependencies the constraints
+      # allow. Composer 2.10+ refuses Laravel releases with security
+      # advisories, which is every release testbench ^7|^8|^9 accepts.
+      # The package doesn't pin Laravel for apps, so tests may use them.
       - name: Install dependencies
-        run: composer update --no-interaction --no-progress --prefer-dist
+        run: composer update --no-interaction --no-progress --prefer-dist --no-security-blocking
 
       - name: Run tests
         run: vendor/bin/phpunit
