@@ -3,8 +3,10 @@
 namespace Kamva\Crud\Listing;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Kamva\Crud\Columns\ColumnSet;
+use Kamva\Crud\Containers\ColumnContainer;
 
 /**
  * Answers the server-side DataTables request the list view makes
@@ -112,11 +114,11 @@ final class DataTablesLoader
         $operator   = $rows->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
         $model      = $rows->getModel();
 
-        // Columns with no database column of their own (Closure or relation
-        // values) can't be searched in the query.
+        // Columns with no database column of their own (Closure, relation
+        // or accessor values) can't be searched in the query.
         $colNames   = [];
         foreach ($this->columns as $col) {
-            $colName = $col->guessColNameInDB($model);
+            $colName = $this->dbColumn($col, $model);
             if (!empty($colName)) {
                 $colNames[] = $colName;
             }
@@ -156,10 +158,10 @@ final class DataTablesLoader
             return $rows->orderBy("created_at", "desc");
         }
 
-        // A column with no database column of its own (Closure or relation
-        // value) orders by the primary key: a stable order on every driver.
-        // Qualified, so a query with joins isn't ambiguous.
-        $colName = $this->columns->at($index)->guessColNameInDB($rows->getModel())
+        // A column with no database column of its own (Closure, relation or
+        // accessor value) orders by the primary key: a stable order on every
+        // driver. Qualified, so a query with joins isn't ambiguous.
+        $colName = $this->dbColumn($this->columns->at($index), $rows->getModel())
             ?? $rows->getModel()->getQualifiedKeyName();
 
         // $dir is untrusted too: Builder::orderBy() throws on anything but
@@ -171,5 +173,57 @@ final class DataTablesLoader
         }
 
         return $rows;
+    }
+
+    /**
+     * DataTables indexes of the data columns that can't be sorted (they have
+     * no database column of their own), for the list view's
+     * `columnDefs: [{orderable: false, targets: …}]`. Sorting by one orders
+     * by the primary key, which the header arrow would misrepresent.
+     *
+     * @return int[]
+     */
+    public function unsortableColumns(Model $model): array
+    {
+        $offset = $this->rowCounter ? 1 : 0;
+        $out    = [];
+
+        foreach ($this->columns as $index => $col) {
+            if (empty($this->dbColumn($col, $model))) {
+                $out[] = $index + $offset;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The table column $col reads, or null when it reads none. A name the
+     * model resolves itself (an accessor, an appended attribute, or a method
+     * such as a relation) is checked against the table's real columns where
+     * the schema can be listed; elsewhere (MongoDB) the guess stands. Plain
+     * names are used as is, without a schema query.
+     */
+    private function dbColumn(ColumnContainer $col, Model $model): ?string
+    {
+        $name = $col->guessColNameInDB($model);
+
+        if (empty($name)) {
+            return null;
+        }
+
+        if ($this->resolvedByModel($model, $name) && app(TableColumns::class)->has($model, $name) === false) {
+            return null;
+        }
+
+        return $name;
+    }
+
+    private function resolvedByModel(Model $model, string $name): bool
+    {
+        return $model->hasGetMutator($name)
+            || (method_exists($model, 'hasAttributeMutator') && $model->hasAttributeMutator($name))
+            || (method_exists($model, 'getAppends') && in_array($name, $model->getAppends(), true))
+            || (method_exists($model, $name) && !method_exists(Model::class, $name));
     }
 }

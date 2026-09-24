@@ -358,10 +358,11 @@ class CRUDController extends Controller
                 ]);
             }
 
-            $rowCounter   = $this->rowCounter;
-            $createButton = $this->createButton;
+            $rowCounter        = $this->rowCounter;
+            $createButton      = $this->createButton;
+            $unsortableColumns = $this->dataTablesLoader()->unsortableColumns($rows->getModel());
 
-            return view('kamva-crud::list', compact('title', 'cols', 'createRoute', 'importProfiles', 'storeRoute', 'filters', 'topActions', 'stats', 'rowCounter', 'createButton'));
+            return view('kamva-crud::list', compact('title', 'cols', 'createRoute', 'importProfiles', 'storeRoute', 'filters', 'topActions', 'stats', 'rowCounter', 'createButton', 'unsortableColumns'));
         }
     }
 

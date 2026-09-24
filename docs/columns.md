@@ -87,7 +87,21 @@ $this->addColumn('Avatar', function ($user) {
 ## DB column for sorting / searching
 
 The list view supports sorting and searching by clicking column headers.
-By default the framework guesses the underlying DB column from the
-`$value` string. For Closure columns it falls back to `_id`. If you need
-a specific DB column to back a Closure column (so sorting works), the
-current API doesn't expose that — file an issue or use a string `$value`.
+The DB column is taken from the `$value` string: `'name'` and
+`'status.badge'` use `name` and `status`. When the model resolves that name
+itself (an accessor, an appended attribute, or a method such as a relation),
+it is only used if it is also a real column of the table. The table's
+columns are listed once per table per app instance. On MongoDB, which has no
+fixed columns, the name is used as is.
+
+Columns without a DB column of their own are left out of the search, and
+sorting by one orders by the primary key:
+
+- Closure columns
+- relation columns (`'category.title'`, or a column type on a relation)
+- accessor and appended attributes (`'full_name'`)
+
+The list view receives their indexes as `$unsortableColumns`, to turn off
+sorting on those headers (see the README's list view example). To make such
+a column sortable, point it at a real column: `'category_id.field'` shows the
+field's option label and sorts by `category_id`.

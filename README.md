@@ -216,7 +216,11 @@ The list page itself carries no rows. The table loads them from the same
         serverSide: true,
         processing: true,
         ajax: window.location.href,
-        columnDefs: [{ targets: -1, orderable: false }],
+        columnDefs: [
+            // The actions column, and columns with no database column of
+            // their own (Closure, relation, accessor), can't be sorted.
+            { targets: [-1, ...@json($unsortableColumns)], orderable: false },
+        ],
     });
 </script>
 @endpush
@@ -400,6 +404,7 @@ After publishing, edit `resources/views/vendor/kamva-crud/list.blade.php` and
 | `$stats` | array | Summary numbers: `label`, `value`, `icon`, `color`, `link` (see [docs/stats.md](docs/stats.md)) |
 | `$rowCounter` | bool | Render the leading `#` column (`false` after `disableRowCounter()`) |
 | `$createButton` | bool | Render the create button (`false` after `hideCreateButton()`) |
+| `$unsortableColumns` | int[] | DataTables indexes (row counter included) of columns with no database column of their own: Closure, relation (`'owner.name'`) and accessor columns. Pass them to `columnDefs` as `orderable: false`; sorting by one orders by the primary key |
 
 **create / edit / show view**
 
