@@ -699,11 +699,12 @@ class CRUDController extends Controller
             // so cast there first, the way MySQL and SQLite do implicitly.
             $connection = $rows->getConnection();
             $grammar    = $connection->getQueryGrammar();
-            $cast       = $connection->getDriverName() === 'pgsql' ? '::text' : '';
+            $pgsql      = $connection->getDriverName() === 'pgsql';
 
-            $rows->where(function ($q) use ($columns, $like, $grammar, $cast) {
+            $rows->where(function ($q) use ($columns, $like, $grammar, $pgsql) {
                 foreach ($columns as $col) {
-                    $q->orWhereRaw("LOWER({$grammar->wrap($col)}{$cast}) LIKE ?", [$like]);
+                    $wrapped = $pgsql ? "CAST({$grammar->wrap($col)} AS TEXT)" : $grammar->wrap($col);
+                    $q->orWhereRaw("LOWER({$wrapped}) LIKE ?", [$like]);
                 }
             });
         };

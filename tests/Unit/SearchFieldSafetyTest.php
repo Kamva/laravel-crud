@@ -42,9 +42,9 @@ class SearchFieldSafetyTest extends TestCase
     {
         $sql = $this->applySearch(['name'], 'x')->toSql();
 
-        // Identifier wrapped (sqlite/MySQL: "name" / `name`; Postgres adds
-        // a ::text cast), not bare.
-        $this->assertMatchesRegularExpression('/lower\(["`]name["`](::text)?\)/i', $sql);
+        // Identifier wrapped (sqlite/MySQL: "name" / `name`; Postgres casts
+        // it to text), not bare.
+        $this->assertMatchesRegularExpression('/lower\((cast\()?["`]name["`]( as text\))?\)/i', $sql);
         $this->assertStringNotContainsString('LOWER(name)', $sql);
     }
 

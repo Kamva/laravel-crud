@@ -9,6 +9,8 @@ use Orchestra\Testbench\TestCase as Orchestra;
 /**
  * Tests run on in-memory SQLite. Set DB_CONNECTION=pgsql (plus DB_HOST,
  * DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD) to run them on Postgres.
+ * Every test drops the database's public schema, so the database name must
+ * contain "test".
  */
 abstract class TestCase extends Orchestra
 {
@@ -17,6 +19,13 @@ abstract class TestCase extends Orchestra
         parent::setUp();
 
         if (config('database.connections.testing.driver') === 'pgsql') {
+            // DB_* may be left over from an app's environment: never wipe a
+            // database that isn't obviously a throwaway test one.
+            $database = config('database.connections.testing.database');
+            if (stripos($database, 'test') === false) {
+                $this->fail("Refusing to drop the public schema of \"{$database}\": the Postgres test database name must contain \"test\".");
+            }
+
             // Tests create their tables in setUp(); start each one from an
             // empty schema, as the in-memory SQLite database does. Fixtures
             // use SQLite's built-in NOCASE collation, so define it here.

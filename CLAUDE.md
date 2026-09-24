@@ -41,7 +41,8 @@ vendor/bin/phpunit
 
 `DB_CONNECTION=pgsql` (with `DB_HOST`, `DB_PORT`, `DB_DATABASE`,
 `DB_USERNAME`, `DB_PASSWORD`) runs them on Postgres instead; `tests/TestCase.php`
-resets the schema before each test. CI (`.github/workflows/tests.yml`) runs
+resets the schema before each test (so the database name must contain
+`test`). CI (`.github/workflows/tests.yml`) runs
 both. Query code must work on SQLite, MySQL and Postgres: SQLite reads an
 unknown double-quoted column as a string, so a bad column name only fails on
 the other two.

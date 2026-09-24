@@ -13,8 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   table, or sorting it by a Closure column, queried a column named `_id`
   (a MongoDB leftover), and relation columns such as `'owner.name'` queried a
   column named after the relation. Both are errors on Postgres and MySQL.
-  Search now skips columns with no database column of their own, and sorting
-  by one orders by the model's primary key (`_id` on MongoDB, as before).
+  Search now skips columns with no database column of their own (a list with
+  none matches no rows, as before), and sorting by one orders by the model's
+  primary key (`_id` on MongoDB, as before), qualified with the table name so
+  queries with joins stay unambiguous.
 - **List search ignores case on Postgres**, as it already did on MySQL and
   SQLite (`ILIKE` instead of `LIKE`).
 - **`addSearchField()` works on non-text columns on Postgres.** It used

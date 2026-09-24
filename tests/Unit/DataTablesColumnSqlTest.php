@@ -99,13 +99,68 @@ class DataTablesColumnSqlTest extends TestCase
         $this->assertSame(['BANANA'], array_column($response['data'], 3));
     }
 
-    private function loaderRequest(array $params): array
+    public function test_search_with_no_searchable_column_matches_nothing(): void
+    {
+        $response = $this->loaderRequest(['search' => ['value' => 'ap']], function (CRUDController $c) {
+            $c->addColumn('Owner', 'owner.name');
+            $c->addColumn('Shout', fn ($row) => strtoupper($row->name));
+        });
+
+        $this->assertSame([], $response['data']);
+        $this->assertSame(0, $response['recordsFiltered']);
+        $this->assertSame(4, $response['recordsTotal']);
+    }
+
+    public function test_numeric_columns_are_searchable(): void
+    {
+        $response = $this->loaderRequest([
+            'search' => ['value' => '3'],
+            'order'  => [['column' => 1, 'dir' => 'asc']],
+        ], function (CRUDController $c) {
+            $c->addColumn('Name', 'name');
+            $c->addColumn('ID', 'id');
+        });
+
+        $this->assertSame(['banana'], array_column($response['data'], 0));
+    }
+
+    public function test_primary_key_ordering_is_qualified_for_joined_queries(): void
+    {
+        Schema::create('dcs_flags', function ($table) {
+            $table->increments('id');
+            $table->unsignedInteger('widget_id');
+        });
+        foreach (DcsWidget::pluck('id') as $id) {
+            DB::table('dcs_flags')->insert(['widget_id' => $id]);
+        }
+
+        $response = $this->loaderRequest(['join' => 1, 'order' => [['column' => 1, 'dir' => 'desc']]], function (CRUDController $c) {
+            // setQuery() nests its closure in a where(), which drops joins;
+            // a filter gets the query itself.
+            $c->addHiddenFilter('join', fn ($request, $q) => $q->join('dcs_flags', 'dcs_flags.widget_id', '=', 'dcs_widgets.id'));
+            $c->addColumn('Name', 'name');
+            $c->addColumn('Shout', fn ($row) => strtoupper($row->name));
+        });
+
+        $this->assertSame(['apricot', 'banana', 'Apple', 'cherry'], array_column($response['data'], 0));
+    }
+
+    private function loaderRequest(array $params, ?\Closure $columns = null): array
     {
         $controller = new class($this->app->make(Form::class)) extends CRUDController {
+            public ?\Closure $columns = null;
+
             public function setup(): void
             {
                 $this->setModel(DcsWidget::class);
                 $this->disableRowCounter();
+
+                if ($this->columns) {
+                    ($this->columns)($this);
+
+                    return;
+                }
+
                 $this->addColumn('Name', 'name');
                 $this->addColumn('Owner', 'owner.name');
                 $this->addColumn('Shout', fn ($row) => strtoupper($row->name));
@@ -117,6 +172,7 @@ class DataTablesColumnSqlTest extends TestCase
                 return '';
             }
         };
+        $controller->columns = $columns;
         $controller->init();
 
         $request = Request::create('/dcs-widgets', 'GET', $params + ['start' => 0, 'length' => 10], [], [], [

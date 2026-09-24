@@ -112,14 +112,24 @@ final class DataTablesLoader
         $operator   = $rows->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
         $model      = $rows->getModel();
 
-        return $rows->where(function ($q) use ($text, $operator, $model) {
-            foreach ($this->columns as $col) {
-                // Columns with no database column of their own (Closure or
-                // relation values) can't be searched in the query.
-                $colName = $col->guessColNameInDB($model);
-                if (!empty($colName)) {
-                    $q->orWhere($colName, $operator, "%" . $text . "%");
-                }
+        // Columns with no database column of their own (Closure or relation
+        // values) can't be searched in the query.
+        $colNames   = [];
+        foreach ($this->columns as $col) {
+            $colName = $col->guessColNameInDB($model);
+            if (!empty($colName)) {
+                $colNames[] = $colName;
+            }
+        }
+
+        // Nothing searchable: match no rows rather than ignore the term.
+        if (empty($colNames)) {
+            return $rows->whereKey([]);
+        }
+
+        return $rows->where(function ($q) use ($text, $operator, $colNames) {
+            foreach ($colNames as $colName) {
+                $q->orWhere($colName, $operator, "%" . $text . "%");
             }
         });
     }
@@ -148,8 +158,9 @@ final class DataTablesLoader
 
         // A column with no database column of its own (Closure or relation
         // value) orders by the primary key: a stable order on every driver.
+        // Qualified, so a query with joins isn't ambiguous.
         $colName = $this->columns->at($index)->guessColNameInDB($rows->getModel())
-            ?? $rows->getModel()->getKeyName();
+            ?? $rows->getModel()->getQualifiedKeyName();
 
         // $dir is untrusted too: Builder::orderBy() throws on anything but
         // asc/desc, so fall back to the default direction instead of a 500.
