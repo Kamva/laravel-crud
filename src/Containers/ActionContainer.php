@@ -232,14 +232,20 @@ class ActionContainer
 
     public function hasAccess($data)
     {
-        if (empty($this->getAccessControlMethod())) {
-            $default = KamvaCrud::get('default_acl_method');
+        $default = KamvaCrud::get('default_acl_method');
 
+        if (empty($this->getAccessControlMethod())) {
             if (empty($default)) {
                 return true;
             }
 
             return $default($this->route, auth()->user(), $data);
+        }
+
+        // 'and' mode: the action's closure narrows the default permission
+        // check instead of replacing it (see Service::setActionAclMode()).
+        if (!empty($default) && KamvaCrud::getActionAclMode() === 'and' && !$default($this->route, auth()->user(), $data)) {
+            return false;
         }
 
         return $this->getAccessControlMethod()($data);

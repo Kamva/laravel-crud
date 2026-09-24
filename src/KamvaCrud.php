@@ -14,7 +14,10 @@ use Illuminate\Support\Facades\Facade as BaseFacade;
  * @method static Response  apiResponse($data, $code = 200)
  * @method static mixed     set($key, $value)
  * @method static mixed     get($key)
+ * @method static void      flushRequestState(?object $request = null)
  * @method static void      setDefaultACLMethod($callable)
+ * @method static void      setActionAclMode(string $mode)
+ * @method static string    getActionAclMode()
  * @method static bool      isApi()
 
  */

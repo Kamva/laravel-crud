@@ -12,6 +12,9 @@ class Service
     private $data               = [];
     private $extensionManager;
 
+    /** The request flushRequestState() last ran for. */
+    private ?\WeakReference $request = null;
+
     public function __construct()
     {
         $this->extensionManager = new ExtensionManager();
@@ -35,6 +38,28 @@ class Service
     public function setDefaultACLMethod(\Closure $callable)
     {
         $this->set('default_acl_method', $callable);
+    }
+
+    /**
+     * How a row action's own access closure combines with the default ACL
+     * method (setDefaultACLMethod()):
+     *  - 'replace' (default): the action's closure is used instead of the
+     *    default method, as in every release so far.
+     *  - 'and': both must allow the action. The closure narrows the
+     *    permission check (e.g. "only unlocked rows") instead of replacing it.
+     */
+    public function setActionAclMode(string $mode): void
+    {
+        if (!in_array($mode, ['replace', 'and'], true)) {
+            throw new \InvalidArgumentException("Action ACL mode must be 'replace' or 'and', got '{$mode}'.");
+        }
+
+        $this->set('action_acl_mode', $mode);
+    }
+
+    public function getActionAclMode(): string
+    {
+        return $this->get('action_acl_mode') ?? 'replace';
     }
 
     /**
@@ -67,6 +92,34 @@ class Service
     public function get($key)
     {
         return $this->data[$key] ?? null;
+    }
+
+    /**
+     * Forget what belongs to one request: the active controller ('class'),
+     * the record being edited ('model') and the per-controller option
+     * caches of source-backed fields. Settings made at boot (default ACL
+     * method, dark mode, column types…) are kept. Called by
+     * CRUDController::init() with the current request, so a long-lived
+     * worker doesn't serve one request's state to the next; given a request
+     * already flushed for, it does nothing.
+     */
+    public function flushRequestState(?object $request = null): void
+    {
+        // Once per request: a second controller initialised while handling
+        // the same request must not drop the record the first one is editing.
+        if ($request !== null) {
+            if ($this->request?->get() === $request) {
+                return;
+            }
+
+            $this->request = \WeakReference::create($request);
+        }
+
+        foreach (array_keys($this->data) as $key) {
+            if ($key === 'class' || $key === 'model' || str_starts_with($key, 'source_cache_')) {
+                unset($this->data[$key]);
+            }
+        }
     }
 
     public function set($key, $value)

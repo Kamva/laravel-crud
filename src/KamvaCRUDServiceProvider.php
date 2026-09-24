@@ -15,11 +15,14 @@ class KamvaCRUDServiceProvider extends ServiceProvider
         // addExtension(), setDefaultACLMethod(). Making it request-scoped would
         // flush those between Octane/Swoole request lifecycles and silently
         // disable custom column types and store extensions after the first
-        // request. Per-request cache isolation is handled at the cache-key
-        // level instead (see BaseField::getOptionsFromSource()).
+        // request. What belongs to one request (the active controller, the
+        // edited record, field option caches) is dropped by
+        // Service::flushRequestState() when a controller initialises.
         $this->app->singleton('kamva-crud', function () {
             return new Service();
         });
+
+        $this->app->singleton(Listing\TableColumns::class);
     }
 
      public function boot()

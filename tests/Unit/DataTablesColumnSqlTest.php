@@ -13,8 +13,9 @@ use Kamva\Crud\Tests\TestCase;
 
 /**
  * The DataTables search and ordering must only reference real columns.
- * Closure and relation columns have none: querying a guessed name ("_id",
- * or the relation's name) is an unknown-column error on Postgres and MySQL,
+ * Closure, relation and accessor columns have none: querying a guessed name
+ * ("_id", the relation's or the accessor's name) is an unknown-column error
+ * on Postgres and MySQL,
  * while SQLite silently reads a double-quoted unknown name as a string, so
  * the SQL is checked here too.
  */
@@ -145,6 +146,113 @@ class DataTablesColumnSqlTest extends TestCase
         $this->assertSame(['apricot', 'banana', 'Apple', 'cherry'], array_column($response['data'], 0));
     }
 
+    public function test_accessor_and_column_type_on_relation_are_not_queried(): void
+    {
+        KamvaCrud::addColumnType('dcs_badge', fn ($row, $col) => "[{$row->$col?->name}]");
+        DB::enableQueryLog();
+
+        $response = $this->loaderRequest([
+            'search' => ['value' => 'ap'],
+            'order'  => [['column' => 1, 'dir' => 'desc']],
+        ], function (CRUDController $c) {
+            $c->addColumn('Name', 'name');
+            $c->addColumn('Label', 'label');              // accessor
+            $c->addColumn('Owner', 'owner.dcs_badge');    // column type on a relation
+        });
+
+        // Only `name` is searched; the accessor column orders by the key.
+        $this->assertSame(['apricot', 'Apple'], array_column($response['data'], 0));
+        $this->assertSame(['#4 apricot', '#2 Apple'], array_column($response['data'], 1));
+        $this->assertSame(['[Bob]', '[Bob]'], array_column($response['data'], 2));
+
+        foreach (DB::getQueryLog() as $query) {
+            $this->assertDoesNotMatchRegularExpression('/["`](label|owner)["`]/', $query['query']);
+        }
+    }
+
+    public function test_list_view_gets_the_unsortable_column_indexes(): void
+    {
+        $controller = new class($this->app->make(Form::class)) extends CRUDController {
+            public function setup(): void
+            {
+                $this->setModel(DcsWidget::class);
+                $this->addColumn('Name', 'name');
+                $this->addColumn('Owner', 'owner.name');
+                $this->addColumn('Label', 'label');
+                $this->addColumn('Shout', fn ($row) => strtoupper($row->name));
+                $this->addColumn('Created', 'created_at');
+            }
+        };
+        $controller->init();
+
+        $request = Request::create('/dcs-widgets', 'GET');
+        $this->app->instance('request', $request);
+
+        // Row counter on: data columns start at DataTables index 1.
+        $this->assertSame([2, 3, 4], $controller->index($request)->getData()['unsortableColumns']);
+
+        $controller->disableRowCounter();
+        $this->assertSame([1, 2, 3], $controller->index($request)->getData()['unsortableColumns']);
+    }
+
+    public function test_fixed_order_makes_every_column_unsortable(): void
+    {
+        $controller = new class($this->app->make(Form::class)) extends CRUDController {
+            public function setup(): void
+            {
+                $this->setModel(DcsWidget::class);
+                $this->setOrderBy('id', 'desc');
+                $this->addColumn('Name', 'name');
+                $this->addColumn('Shout', fn ($row) => strtoupper($row->name));
+            }
+        };
+        $controller->init();
+
+        $request = Request::create('/dcs-widgets', 'GET');
+        $this->app->instance('request', $request);
+
+        $this->assertSame([1, 2], $controller->index($request)->getData()['unsortableColumns']);
+    }
+
+    public function test_column_names_match_case_as_the_driver_does(): void
+    {
+        DB::enableQueryLog();
+
+        // `Name` is resolved by the model (getNameAttribute), so it is checked
+        // against the table: SQLite and MySQL match `name` whatever the case,
+        // Postgres only matches the exact quoted name.
+        $response = $this->loaderRequest([
+            'search' => ['value' => 'ap'],
+            'order'  => [['column' => 0, 'dir' => 'asc']],
+        ], fn (CRUDController $c) => $c->addColumn('Name', 'Name'));
+
+        $queried = collect(DB::getQueryLog())->contains(fn ($q) => str_contains($q['query'], '"Name"'));
+
+        if (DB::getDriverName() === 'pgsql') {
+            $this->assertFalse($queried);
+            $this->assertSame([], $response['data']);
+        } else {
+            $this->assertTrue($queried);
+            $this->assertCount(2, $response['data']);
+        }
+    }
+
+    public function test_a_failed_schema_listing_is_tried_again(): void
+    {
+        config(['database.connections.dcs_later' => ['driver' => 'sqlite', 'database' => '/nonexistent/dir/db.sqlite', 'prefix' => '']]);
+        $model = (new DcsWidget())->setConnection('dcs_later');
+        $columns = $this->app->make(\Kamva\Crud\Listing\TableColumns::class);
+
+        $this->assertNull($columns->has($model, 'name'));
+
+        config(['database.connections.dcs_later.database' => ':memory:']);
+        DB::purge('dcs_later');
+        Schema::connection('dcs_later')->create('dcs_widgets', fn ($table) => $table->string('name'));
+
+        $this->assertTrue($columns->has($model, 'name'));
+        $this->assertFalse($columns->has($model, 'label'));
+    }
+
     private function loaderRequest(array $params, ?\Closure $columns = null): array
     {
         $controller = new class($this->app->make(Form::class)) extends CRUDController {
@@ -198,5 +306,15 @@ class DcsWidget extends Model
     public function owner()
     {
         return $this->belongsTo(DcsOwner::class, 'owner_id');
+    }
+
+    public function getNameAttribute($value)
+    {
+        return $value;
+    }
+
+    public function getLabelAttribute()
+    {
+        return "#{$this->id} {$this->name}";
     }
 }
