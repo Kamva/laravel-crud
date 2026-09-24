@@ -27,6 +27,26 @@ class FormGetFieldTest extends TestCase
         $this->assertNull($form->getField('missing'));
     }
 
+    public function test_get_field_matches_the_original_loose_scan(): void
+    {
+        $form  = new Form();
+        $names = ['name', 'status', '10', '1.0', 'name', '', 'price'];
+        foreach ($names as $i => $name) {
+            $form->addField(StubTextField::class, "F{$i}", $name);
+        }
+
+        // Look one up before adding another field: the index must refresh.
+        $this->assertNull($form->getField('late'));
+        $form->addField(StubTextField::class, 'Late', 'late');
+
+        $lookups = ['name', 'status', 'late', 'price', '', 'missing', '10', '10.0', '1', '1e1', 10, 1, 0, null];
+        foreach ($lookups as $lookup) {
+            $expected = collect($form->getFields())->first(fn ($field) => $field->getName() == $lookup);
+
+            $this->assertSame($expected, $form->getField($lookup), 'lookup ' . var_export($lookup, true));
+        }
+    }
+
     public function test_add_field_filter_attaches_the_named_form_field(): void
     {
         Schema::create('gf_widgets', function ($table) {

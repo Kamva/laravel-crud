@@ -5,6 +5,7 @@ namespace Kamva\Crud\Columns;
 use ArrayIterator;
 use IteratorAggregate;
 use Kamva\Crud\Containers\ColumnContainer;
+use Kamva\Crud\KamvaCrud;
 use Traversable;
 
 /**
@@ -42,6 +43,39 @@ final class ColumnSet implements IteratorAggregate
     public function at(int $index): ?ColumnContainer
     {
         return $this->columns[$index] ?? null;
+    }
+
+    /**
+     * Eager-load the relations read by dotted columns (`'category.title'`)
+     * for a page of rows, where that gives the same values as lazy loading.
+     * See {@see RelationPreloader}.
+     *
+     * @param \Illuminate\Database\Eloquent\Collection|mixed $rows
+     */
+    public function preloadRelations($rows): void
+    {
+        $names = [];
+        foreach ($this->columns as $col) {
+            if (! is_string($col->value)) {
+                continue;
+            }
+
+            // Same resolution order as ColumnContainer::getValue(): a custom
+            // column type (KamvaCrud::addColumnType()) or a column method
+            // (e.g. 'status.field') handles the value before any relation is
+            // read, so only the remaining dotted values are preloaded.
+            $segments = explode('.', $col->value);
+            $action   = $segments[1] ?? null;
+            if (empty($action) || KamvaCrud::hasColumnType($action) || method_exists($col, $action)) {
+                continue;
+            }
+
+            $names[$segments[0]] = $segments[0];
+        }
+
+        if ($names) {
+            RelationPreloader::preload($rows, array_values($names));
+        }
     }
 
     /**

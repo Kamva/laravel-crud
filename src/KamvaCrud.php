@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Facade as BaseFacade;
  * @package Kamva\Crud
  * @method static void      addExtension($type, \Closure $callable)
  * @method static void      addColumnType(string $name, \Closure $callback)
+ * @method static bool      hasColumnType(string $name)
  * @method static Response  apiResponse($data, $code = 200)
  * @method static mixed     set($key, $value)
  * @method static mixed     get($key)

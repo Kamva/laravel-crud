@@ -6,6 +6,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Kamva\Crud\Actions\Internal\BaseAction;
@@ -164,6 +165,7 @@ class CRUDController extends Controller
         }
 
         $rows   = $rows->paginate($perPage);
+        (new ColumnSet($this->apiEntities))->preloadRelations($rows->getCollection());
         $rows->setCollection(collect($rows->items())->map(fn ($row) => $this->getApiSingleRecord($row)));
 
         return KamvaCrud::apiResponse($this->createApiResponseFromData($rows));
@@ -175,7 +177,13 @@ class CRUDController extends Controller
         $columns    = new ColumnSet(empty($this->exportCols) ? $this->cols : $this->exportCols);
         $data       = [$columns->headers()];
 
-        foreach ($rows->paginate(100000)->items() as $row) {
+        // The same rows paginate(100000) returned, without its COUNT query
+        // (the total was never used). Paginator::resolveCurrentPage() is the
+        // page resolution paginate() itself uses.
+        $records    = $rows->forPage(Paginator::resolveCurrentPage('page'), 100000)->get();
+        $columns->preloadRelations($records);
+
+        foreach ($records as $row) {
             $data[] = $columns->values($row, true);
         }
 

@@ -3,7 +3,9 @@
 namespace Kamva\Crud\Containers;
 
 use Kamva\Crud\KamvaCrud;
+use Illuminate\Routing\UrlGenerator;
 use Illuminate\Support\Str;
+use Throwable;
 
 class ActionContainer
 {
@@ -14,6 +16,10 @@ class ActionContainer
     private ?\Closure   $accessControlMethod;
     private array       $options    = [];
     private array       $parameters = [];
+    private array       $renderIsView = [];
+
+    /** @var array{0:string,1:array}|false|null URL with placeholders, false when disabled. */
+    private $urlTemplate = null;
 
     public function __construct(string $caption = '', string $render = '', $acm = null, $parameters = [])
     {
@@ -28,7 +34,8 @@ class ActionContainer
      */
     public function setRoute(string $route): void
     {
-        $this->route = $route;
+        $this->route       = $route;
+        $this->urlTemplate = null;
     }
 
     /**
@@ -49,7 +56,12 @@ class ActionContainer
 
     public function getRender($data)
     {
-        return view()->exists($this->render) ? view($this->render, compact('data')) : $this->render;
+        // Cache the lookup per render string: this runs for every action on
+        // every row, and a miss (the usual case, an icon HTML string) is not
+        // cached by the view finder, so each call probed the filesystem.
+        $isView = $this->renderIsView[$this->render] ??= view()->exists($this->render);
+
+        return $isView ? view($this->render, compact('data')) : $this->render;
     }
 
     /**
@@ -85,15 +97,115 @@ class ActionContainer
     public function url($data)
     {
         $parameters = $this->getParameters();
+        $rowKeys    = [];
         foreach ($parameters as $key => $parameter) {
             if (Str::startsWith($parameter, '$')) {
                 unset($parameters[$key]);
 
                 $parameters[$key] = $data->{str_replace("$", "", $parameter)};
+                $rowKeys[]        = $key;
             }
         }
 
-        return route($this->route, $parameters);
+        return $this->urlFromTemplate($parameters, $rowKeys) ?? route($this->route, $parameters);
+    }
+
+    /**
+     * Fast path for url(): it runs for every action on every list row, and
+     * route() is comparatively expensive. The URL is generated once with
+     * placeholder values, then each row's values are substituted into it.
+     *
+     * Only used when the result is guaranteed to equal route()'s:
+     *  - every row value is an int or an alphanumeric string, which route()
+     *    inserts verbatim (no encoding, no model binding);
+     *  - the URL generator is Laravel's own, without formatHostUsing() /
+     *    formatPathUsing() callbacks that could depend on the values;
+     *  - each placeholder appears exactly once in the generated URL, and the
+     *    template reproduces route() for the first real row.
+     * Anything else returns null and url() calls route() as before.
+     */
+    private function urlFromTemplate(array $parameters, array $rowKeys): ?string
+    {
+        if ($this->urlTemplate === false) {
+            return null;
+        }
+
+        $values = [];
+        foreach ($rowKeys as $key) {
+            $value = $parameters[$key];
+            if (! is_int($value) && ! (is_string($value) && preg_match('/^[A-Za-z0-9]+$/D', $value))) {
+                return null;
+            }
+            $values[$key] = (string) $value;
+        }
+
+        if ($this->urlTemplate === null) {
+            $this->urlTemplate = $this->buildUrlTemplate($parameters, $rowKeys) ?? false;
+
+            if ($this->urlTemplate === false) {
+                return null;
+            }
+        }
+
+        [$template, $placeholders] = $this->urlTemplate;
+
+        if (array_keys($placeholders) !== $rowKeys) {
+            return null;
+        }
+
+        $replace = [];
+        foreach ($placeholders as $key => $placeholder) {
+            $replace[$placeholder] = $values[$key];
+        }
+
+        return strtr($template, $replace);
+    }
+
+    /**
+     * @return array{0:string,1:array}|null
+     */
+    private function buildUrlTemplate(array $parameters, array $rowKeys): ?array
+    {
+        $url = app('url');
+
+        if (get_class($url) !== UrlGenerator::class) {
+            return null;
+        }
+
+        try {
+            foreach (['formatHostUsing', 'formatPathUsing'] as $property) {
+                $reflection = new \ReflectionProperty(UrlGenerator::class, $property);
+                $reflection->setAccessible(true);
+                if ($reflection->getValue($url) !== null) {
+                    return null;
+                }
+            }
+
+            $placeholders = [];
+            $probe        = $parameters;
+            foreach ($rowKeys as $i => $key) {
+                $placeholders[$key] = 'kcrudurl' . bin2hex(random_bytes(8)) . 'p' . $i;
+                $probe[$key]        = $placeholders[$key];
+            }
+
+            $template = route($this->route, $probe);
+            $expected = route($this->route, $parameters);
+        } catch (Throwable $e) {
+            return null;
+        }
+
+        foreach ($placeholders as $placeholder) {
+            if (substr_count($template, $placeholder) !== 1) {
+                return null;
+            }
+        }
+
+        $replace = [];
+        foreach ($placeholders as $key => $placeholder) {
+            $replace[$placeholder] = (string) $parameters[$key];
+        }
+
+        return strtr($template, $replace) === $expected ? [$template, $placeholders] : null;
     }
     /**
      * @param array $options
@@ -116,7 +228,8 @@ class ActionContainer
      */
     public function setParameters(array $parameters): void
     {
-        $this->parameters = $parameters;
+        $this->parameters  = $parameters;
+        $this->urlTemplate = null;
     }
 
     public function hasAccess($data)

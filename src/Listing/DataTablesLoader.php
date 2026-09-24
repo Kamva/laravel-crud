@@ -81,6 +81,8 @@ final class DataTablesLoader
         $i              = $start + 1;
         $avoidGroup     = $rows->count() < 5;
 
+        $this->columns->preloadRelations($rows);
+
         foreach ($rows as $row) {
             $value      = [];
 

@@ -13,6 +13,7 @@ use Kamva\Crud\Fields\Internal\FieldContract;
 class Form
 {
     private $fields = [];
+    private $fieldIndex;
     private $readOnly = false;
     private $action;
     private $method;
@@ -28,7 +29,8 @@ class Form
      */
     public function addField($type, $caption, $name, $value = null, $options = [])
     {
-        $this->fields[] = new FieldContainer($type, $caption, $name, $value, $options);
+        $this->fields[]   = new FieldContainer($type, $caption, $name, $value, $options);
+        $this->fieldIndex = null;
         return (end($this->fields))->field();
     }
 
@@ -90,6 +92,31 @@ class Form
      */
     public function getField($name)
     {
+        // `'name.field'` list columns look a field up for every cell, so
+        // non-numeric string names go through an index. That is exactly the
+        // loose `==` match below: PHP only compares numerically when the
+        // looked-up string is numeric, and those keep using the scan. The
+        // first field with a given name wins in both paths.
+        if (is_string($name) && ! is_numeric($name)) {
+            if ($this->fieldIndex === null) {
+                $this->fieldIndex = [];
+                foreach ($this->fields as $field) {
+                    $fieldName = $field->getName();
+                    // Other types (e.g. bool) compare loosely in ways a
+                    // string key can't reproduce: keep scanning for those.
+                    if (! is_string($fieldName) && ! is_int($fieldName) && $fieldName !== null) {
+                        $this->fieldIndex = false;
+                        break;
+                    }
+                    $this->fieldIndex[(string) $fieldName] ??= $field;
+                }
+            }
+
+            if ($this->fieldIndex !== false) {
+                return $this->fieldIndex[$name] ?? null;
+            }
+        }
+
         return collect($this->fields)->first(fn ($field) => $field->getName() == $name);
     }
 

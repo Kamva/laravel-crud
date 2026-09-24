@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No breaking changes and nothing to change in your app. See
+[docs/performance.md](docs/performance.md) for details and measurements.
+
+### Performance
+
+- **Relation columns are eager-loaded.** Dotted columns such as
+  `'category.title'` used to run one query per row in the list JSON, the API
+  index and the export (5,000 queries for a 5,000-row export). The relation
+  is now loaded for the whole page in one query. This only happens when it
+  gives exactly the lazy-loading result: to-one relations whose definition
+  doesn't depend on the row and that have at most one match per row, and not
+  for custom column types. Rows without a match on a relation with
+  `withDefault()` also keep loading lazily, since the default may be built
+  from the row. Everything else keeps loading lazily. Each row
+  still gets its own related model instance. One observable difference:
+  `retrieved` events on the related model fire once per distinct record
+  instead of once per row.
+- **Row-action URLs** are built from a per-action template for plain
+  alphanumeric values instead of calling `route()` for every action on every
+  row. Other values, custom URL generators and URL formatting callbacks still
+  use `route()`.
+- **Action `render` lookups** (`view()->exists()`) run once per request
+  instead of once per row, which previously probed the filesystem each time
+  for icon HTML strings.
+- **`'field.field'` columns** find their form field through an index.
+- **Export** no longer runs an unused `COUNT(*)` query.
+
+Benchmark medians (5,000 rows, SQLite, opcache): list page 42.7 → 14.4 ms,
+API index 12.8 → 8.7 ms, export 516 → 266 ms. Queries per list page 103 → 4,
+per export 5,002 → 2.
+
+### Added
+
+- `KamvaCrud::hasColumnType($name)`.
+- Benchmark suite (`composer bench`, `tests/Performance`). It fingerprints
+  each scenario's output and can fail a run whose output differs from a
+  baseline.
+
 ## [2.0.0] - 2026-09-23
 
 Major version because PHP 8.1 is now required (see **Breaking changes**).
