@@ -23,6 +23,32 @@ $this->addAction(EditAction::class, 'crud.admin.edit', function ($data) {
 });
 ```
 
+### Access control
+
+Two checks can decide whether a row shows an action:
+
+- the **default ACL method**, set once for the app with
+  `KamvaCrud::setDefaultACLMethod(fn ($route, $user, $row) => bool)`, usually a
+  permission check on the route;
+- the action's **own closure** (`addAction(..., $accessControlMethod)`,
+  `fn ($row) => bool`), usually a row condition.
+
+By default an action's own closure **replaces** the default method: an action
+with a closure skips the permission check. To have the closure **narrow** the
+permission check instead, so both must allow the action, switch the mode once,
+next to `setDefaultACLMethod()`:
+
+```php
+KamvaCrud::setDefaultACLMethod(fn ($route, $user, $row) => $user->can($route));
+KamvaCrud::setActionAclMode('and');   // default: 'replace'
+
+// Shown only to users who may use posts.edit, and only for unlocked rows.
+$this->addAction(EditAction::class, 'posts.edit', fn ($row) => ! $row->locked);
+```
+
+Either way this only decides which buttons are shown. The route itself must
+still be protected (middleware, policies).
+
 ### Custom row actions
 
 `CustomAction` accepts a caption, HTTP method, and icon class:

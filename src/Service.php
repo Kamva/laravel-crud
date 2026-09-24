@@ -38,6 +38,28 @@ class Service
     }
 
     /**
+     * How a row action's own access closure combines with the default ACL
+     * method (setDefaultACLMethod()):
+     *  - 'replace' (default): the action's closure is used instead of the
+     *    default method, as in every release so far.
+     *  - 'and': both must allow the action. The closure narrows the
+     *    permission check (e.g. "only unlocked rows") instead of replacing it.
+     */
+    public function setActionAclMode(string $mode): void
+    {
+        if (!in_array($mode, ['replace', 'and'], true)) {
+            throw new \InvalidArgumentException("Action ACL mode must be 'replace' or 'and', got '{$mode}'.");
+        }
+
+        $this->set('action_acl_mode', $mode);
+    }
+
+    public function getActionAclMode(): string
+    {
+        return $this->get('action_acl_mode') ?? 'replace';
+    }
+
+    /**
      * Set the dark mode preference for package views.
      * 'auto'  — follows the OS/browser prefers-color-scheme media query (default).
      * 'dark'  — always dark, regardless of system setting.

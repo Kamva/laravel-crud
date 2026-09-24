@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Facade as BaseFacade;
  * @method static mixed     get($key)
  * @method static void      flushRequestState()
  * @method static void      setDefaultACLMethod($callable)
+ * @method static void      setActionAclMode(string $mode)
+ * @method static string    getActionAclMode()
  * @method static bool      isApi()
 
  */

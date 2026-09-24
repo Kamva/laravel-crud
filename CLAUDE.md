@@ -253,6 +253,7 @@ KamvaCrud::apiResponse($data, $code = 200)          // Build JSON response
 KamvaCrud::set($key, $value)                        // Set request-scoped data
 KamvaCrud::get($key)                                // Get request-scoped data
 KamvaCrud::setDefaultACLMethod(Closure $callable)   // Global ACL for actions
+KamvaCrud::setActionAclMode('replace'|'and')        // Action closure replaces / narrows the global ACL
 KamvaCrud::isApi()                                  // Is this an API request?
 ```
 
