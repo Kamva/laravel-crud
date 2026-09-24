@@ -287,7 +287,9 @@ final class RelationPreloader
      */
     private static function hasEagerSafeShape(Relation $relation): bool
     {
-        $eloquent = $relation->getQuery();
+        // With global scopes applied: a scope can add clauses, eager loads or
+        // afterQuery() callbacks too.
+        $eloquent = $relation->getQuery()->applyScopes();
         $query    = $eloquent->getQuery();
 
         if ($eloquent->getEagerLoads()

@@ -275,7 +275,10 @@ class RelationPreloadTest extends TestCase
 
     public function test_relations_whose_query_shape_eager_loading_changes_stay_lazy(): void
     {
-        $relations = ['ownerTakeOne', 'ownerOrWhere', 'ownerWhereRaw', 'ownerAfterQuery', 'ownerViaSubclass'];
+        $relations = [
+            'ownerTakeOne', 'ownerOrWhere', 'ownerWhereRaw', 'ownerAfterQuery', 'ownerViaSubclass',
+            'ownerWithScopedAfterQuery', 'ownerWithScopedEagerLoad',
+        ];
 
         foreach ($relations as $relation) {
             [$data, $queries] = $this->draw(fn (CRUDController $c) => $c->addColumn('Owner', "{$relation}.name"));
@@ -438,6 +441,35 @@ class RelationPreloadTest extends TestCase
     }
 }
 
+/** A global scope that changes the loaded models after the query. */
+class RpScopedOwner extends RpOwner
+{
+    protected static function booted()
+    {
+        static::addGlobalScope('suffix', function ($query) {
+            $query->afterQuery(function ($owners) {
+                foreach ($owners as $owner) {
+                    $owner->name .= ' (scoped)';
+                }
+            });
+        });
+    }
+}
+
+/** A global scope that eager-loads a nested relation. */
+class RpScopedEagerOwner extends RpOwner
+{
+    protected static function booted()
+    {
+        static::addGlobalScope('notes', fn ($query) => $query->with('firstItem'));
+    }
+
+    public function firstItem()
+    {
+        return $this->hasOne(RpItem::class, 'owner_id');
+    }
+}
+
 class RpCustomBelongsTo extends \Illuminate\Database\Eloquent\Relations\BelongsTo
 {
 }
@@ -563,6 +595,16 @@ class RpItem extends Model
                 $owner->name .= ' (after)';
             }
         });
+    }
+
+    public function ownerWithScopedAfterQuery()
+    {
+        return $this->belongsTo(RpScopedOwner::class, 'owner_id');
+    }
+
+    public function ownerWithScopedEagerLoad()
+    {
+        return $this->belongsTo(RpScopedEagerOwner::class, 'owner_id');
     }
 
     public function ownerViaSubclass()
