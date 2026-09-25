@@ -330,6 +330,56 @@ class DataTablesColumnSqlTest extends TestCase
         }
     }
 
+    public function test_accessors_have_no_stored_field_where_columns_cant_be_listed(): void
+    {
+        // What TableColumns reports on MongoDB: columns unknown.
+        $this->app->instance(\Kamva\Crud\Listing\TableColumns::class, new class {
+            public function has($model, $column): ?bool
+            {
+                return null;
+            }
+        });
+
+        $columns = function (CRUDController $c) {
+            $c->setModel(DcsSchemalessWidget::class);
+            $c->addColumn('Name', 'name');          // plain attribute: kept
+            $c->addColumn('Label', 'label');        // accessor: no stored field
+            $c->addColumn('Owner', 'owner.name');   // relation
+            $c->addColumn('Owner id', 'owner_id');  // stored, but has an accessor
+        };
+
+        DB::enableQueryLog();
+        $response = $this->loaderRequest([
+            'search' => ['value' => 'ap'],
+            'order'  => [['column' => 1, 'dir' => 'desc']],
+        ], $columns);
+
+        // Searched by name only; sorting by the accessor orders by the key.
+        $this->assertSame(['apricot', 'Apple'], array_column($response['data'], 0));
+        foreach (DB::getQueryLog() as $query) {
+            $this->assertDoesNotMatchRegularExpression('/["`](label|owner_id)["`] like/i', $query['query']);
+        }
+
+        $controller = new class($this->app->make(Form::class)) extends CRUDController {
+            public ?\Closure $columns = null;
+
+            public function setup(): void
+            {
+                $this->disableRowCounter();
+                ($this->columns)($this);
+            }
+        };
+        $controller->columns = $columns;
+        $controller->init();
+
+        $request = Request::create('/dcs-widgets', 'GET');
+        $this->app->instance('request', $request);
+
+        // The trade-off: a stored field that also has an accessor of the same
+        // name (owner_id) can't be told apart there, so it isn't queried.
+        $this->assertSame([1, 2, 3], $controller->index($request)->getData()['unsortableColumns']);
+    }
+
     private function loaderRequest(array $params, ?\Closure $columns = null): array
     {
         $controller = new class($this->app->make(Form::class)) extends CRUDController {
@@ -393,5 +443,26 @@ class DcsWidget extends Model
     public function getLabelAttribute()
     {
         return "#{$this->id} {$this->name}";
+    }
+}
+
+class DcsSchemalessWidget extends Model
+{
+    protected $table = 'dcs_widgets';
+    protected $guarded = [];
+
+    public function owner()
+    {
+        return $this->belongsTo(DcsOwner::class, 'owner_id');
+    }
+
+    public function getLabelAttribute()
+    {
+        return "#{$this->id} {$this->name}";
+    }
+
+    public function getOwnerIdAttribute($value)
+    {
+        return $value;
     }
 }

@@ -446,12 +446,11 @@ the page has fewer than 5 rows; otherwise the first three are buttons and the
 rest go into a dropdown. Its markup comes from the `kamva-crud::actions` view
 (see [docs/actions.md](docs/actions.md)).
 
-> **Closure columns and search/sort.** A column whose value is a Closure has no
-> database attribute, so the global search and sorting use the column name
-> `_id`. That works on MongoDB models; on MySQL/PostgreSQL it makes the query
-> fail. For lists with Closure columns on an SQL database, turn off the
-> DataTables search box (`searching: false`), mark those columns
-> `orderable: false`, and use `addSearchField()` for searching.
+> **Closure, relation and accessor columns and search/sort.** These columns
+> have no database column of their own, so the global search skips them and
+> sorting by one orders by the primary key. Pass `$unsortableColumns` to
+> DataTables' `columnDefs` (`orderable: false`) so their headers don't offer
+> sorting. See [docs/columns.md](docs/columns.md#db-column-for-sorting--searching).
 
 ---
 

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Accessor columns on MongoDB are no longer searched or sorted** (#38).
+  MongoDB has no column list to check against, so an accessor or appended
+  attribute (`'period'` from `getPeriodAttribute()`) was queried as a stored
+  field: the search matched nothing for it and sorting was arbitrary. It is
+  now treated like other columns without a stored field: left out of the
+  search, sorted by `_id`, and listed in `$unsortableColumns`. Plain
+  attributes and relation columns on MongoDB work as before.
+
 - **List search and sorting skip `skip()`ped form fields with no column.** A
   column such as `'password_confirmation.field'`, whose form field is saved
   by its own callback, was searched and sorted as a table column: an
