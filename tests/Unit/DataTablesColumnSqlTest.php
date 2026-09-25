@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Kamva\Crud\CRUDController;
 use Kamva\Crud\Form;
 use Kamva\Crud\KamvaCrud;
+use Kamva\Crud\Tests\Stubs\StubTextField;
 use Kamva\Crud\Tests\TestCase;
 
 /**
@@ -251,6 +252,62 @@ class DataTablesColumnSqlTest extends TestCase
 
         $this->assertTrue($columns->has($model, 'name'));
         $this->assertFalse($columns->has($model, 'label'));
+    }
+
+    public function test_skipped_field_column_without_a_table_column_is_not_queried(): void
+    {
+        DB::enableQueryLog();
+
+        $response = $this->loaderRequest([
+            'search' => ['value' => 'ap'],
+            'order'  => [['column' => 1, 'dir' => 'desc']],
+        ], function (CRUDController $c) {
+            // Saved by its own callback: no `nickname` column.
+            $c->addField(StubTextField::class, 'Nickname', 'nickname')->skip();
+            $c->addColumn('Name', 'name');
+            $c->addColumn('Nickname', 'nickname.field');
+        });
+
+        $this->assertSame(['apricot', 'Apple'], array_column($response['data'], 0));
+
+        foreach (DB::getQueryLog() as $query) {
+            $this->assertDoesNotMatchRegularExpression('/["`]nickname["`]/', $query['query']);
+        }
+    }
+
+    public function test_skipped_field_over_a_table_column_is_still_queried(): void
+    {
+        DB::enableQueryLog();
+
+        $response = $this->loaderRequest([
+            'search' => ['value' => '2'],
+            'order'  => [['column' => 1, 'dir' => 'desc']],
+        ], function (CRUDController $c) {
+            $c->addField(StubTextField::class, 'Owner', 'owner_id')->skip();
+            $c->addColumn('Owner', 'owner_id.field');
+            $c->addColumn('Name', 'name');
+        });
+
+        $this->assertSame(['apricot', 'Apple'], array_column($response['data'], 1));
+        $this->assertTrue(collect(DB::getQueryLog())->contains(fn ($q) => str_contains($q['query'], '"owner_id"')));
+    }
+
+    public function test_field_columns_that_arent_skipped_dont_list_the_schema(): void
+    {
+        DB::enableQueryLog();
+
+        $this->loaderRequest([
+            'search' => ['value' => '2'],
+            'order'  => [['column' => 0, 'dir' => 'asc']],
+        ], function (CRUDController $c) {
+            $c->addField(StubTextField::class, 'Owner', 'owner_id');
+            $c->addColumn('Owner', 'owner_id.field');
+        });
+
+        $this->assertSame([], array_values(array_filter(
+            array_column(DB::getQueryLog(), 'query'),
+            fn ($sql) => !preg_match('/from ["`]dcs_widgets["`]/', $sql)
+        )));
     }
 
     private function loaderRequest(array $params, ?\Closure $columns = null): array

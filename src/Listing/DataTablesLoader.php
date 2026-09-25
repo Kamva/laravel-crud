@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Kamva\Crud\Columns\ColumnSet;
 use Kamva\Crud\Containers\ColumnContainer;
+use Kamva\Crud\KamvaCrud;
 
 /**
  * Answers the server-side DataTables request the list view makes
@@ -202,9 +203,10 @@ final class DataTablesLoader
     /**
      * The table column $col reads, or null when it reads none. A name the
      * model resolves itself (an accessor, an appended attribute, or a method
-     * such as a relation) is checked against the table's real columns where
-     * the schema can be listed; elsewhere (MongoDB) the guess stands. Plain
-     * names are used as is, without a schema query.
+     * such as a relation), or the name of a skip()ped form field, is checked
+     * against the table's real columns where the schema can be listed;
+     * elsewhere (MongoDB) the guess stands. Plain names are used as is,
+     * without a schema query.
      */
     private function dbColumn(ColumnContainer $col, Model $model): ?string
     {
@@ -214,11 +216,27 @@ final class DataTablesLoader
             return null;
         }
 
-        if ($this->resolvedByModel($model, $name) && app(TableColumns::class)->has($model, $name) === false) {
+        if (
+            ($this->resolvedByModel($model, $name) || $this->isSkippedField($col, $name))
+            && app(TableColumns::class)->has($model, $name) === false
+        ) {
             return null;
         }
 
         return $name;
+    }
+
+    /** A `'name.field'` column whose form field is saved by its own callback, not as a column. */
+    private function isSkippedField(ColumnContainer $col, string $name): bool
+    {
+        if (!is_string($col->value) || (explode('.', $col->value)[1] ?? null) !== 'field') {
+            return false;
+        }
+
+        $controller = KamvaCrud::get('class');
+        $field      = is_object($controller) ? $controller->getForm()->getField($name) : null;
+
+        return !empty($field) && $field->field()->shouldSkipSaving();
     }
 
     private function resolvedByModel(Model $model, string $name): bool
