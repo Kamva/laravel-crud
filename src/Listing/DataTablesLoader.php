@@ -225,11 +225,16 @@ final class DataTablesLoader
             return null;
         }
 
-        if (
-            ($this->resolvedByModel($model, $name) || $this->isSkippedField($col, $name))
-            && app(TableColumns::class)->has($model, $name) === false
-        ) {
-            return null;
+        if ($this->resolvedByModel($model, $name) || $this->isSkippedField($col, $name)) {
+            $has = app(TableColumns::class)->has($model, $name);
+
+            // Where the columns can't be listed (MongoDB is schemaless), an
+            // accessor or appended attribute is still what the model computes,
+            // not a stored field: querying it matches nothing and sorts
+            // arbitrarily.
+            if ($has === false || ($has === null && $this->isAccessor($model, $name))) {
+                return null;
+            }
         }
 
         return $name;
@@ -250,9 +255,15 @@ final class DataTablesLoader
 
     private function resolvedByModel(Model $model, string $name): bool
     {
+        return $this->isAccessor($model, $name)
+            || (method_exists($model, $name) && !method_exists(Model::class, $name));
+    }
+
+    /** An accessor or appended attribute: a value the model computes. */
+    private function isAccessor(Model $model, string $name): bool
+    {
         return $model->hasGetMutator($name)
             || (method_exists($model, 'hasAttributeMutator') && $model->hasAttributeMutator($name))
-            || (method_exists($model, 'getAppends') && in_array($name, $model->getAppends(), true))
-            || (method_exists($model, $name) && !method_exists(Model::class, $name));
+            || (method_exists($model, 'getAppends') && in_array($name, $model->getAppends(), true));
     }
 }

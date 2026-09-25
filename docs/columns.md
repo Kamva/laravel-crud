@@ -93,7 +93,8 @@ itself (an accessor, an appended attribute, or a method such as a relation),
 or names a `skip()`ped form field (`'password_confirmation.field'`), it is
 only used if it is also a real column of the table. The table's
 columns are listed once per table per app instance. On MongoDB, which has no
-fixed columns, the name is used as is.
+fixed columns, accessors and appended attributes are treated as having no
+stored field, and other names are used as is.
 
 Columns without a DB column of their own are left out of the search, and
 sorting by one orders by the primary key:
