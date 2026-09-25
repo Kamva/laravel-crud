@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-09-25
+
+Bug fixes only; nothing to change in your app. Shipped in #40 and #42.
+
 ### Fixed
 
 - **Accessor columns on MongoDB are no longer searched or sorted** (#38).
@@ -16,7 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now treated like other columns without a stored field: left out of the
   search, sorted by `_id`, and listed in `$unsortableColumns`. Plain
   attributes and relation columns on MongoDB work as before.
-
 - **List search and sorting skip `skip()`ped form fields with no column.** A
   column such as `'password_confirmation.field'`, whose form field is saved
   by its own callback, was searched and sorted as a table column: an
@@ -27,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   escaped, so searching `_` matched every row. It is now escaped with an
   explicit `ESCAPE '!'`, which works on every driver (SQLite has no default
   escape character, and MySQL has none under `NO_BACKSLASH_ESCAPES`).
+
+### Internal
+
+- CI actions are pinned to commit SHAs and the Postgres image to a digest
+  (#41).
 
 ## [3.0.0] - 2026-09-24
 
@@ -349,7 +357,8 @@ review them before upgrading.
   hydrating every matching row into models on each draw — preserving
   `distinct()` / `groupBy()` semantics without the memory/latency cost.
 
-[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/Kamva/laravel-crud/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/Kamva/laravel-crud/compare/v2.3.0...v3.0.0
 [2.3.0]: https://github.com/Kamva/laravel-crud/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/Kamva/laravel-crud/compare/v2.1.0...v2.2.0
