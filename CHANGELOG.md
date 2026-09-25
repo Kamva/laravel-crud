@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **List search and sorting skip `skip()`ped form fields with no column.** A
+  column such as `'password_confirmation.field'`, whose form field is saved
+  by its own callback, was searched and sorted as a table column: an
+  unknown-column error on Postgres and MySQL. It is now checked against the
+  table's columns, like accessors and relations. Fields that aren't
+  `skip()`ped run the same queries as before.
+- **List search matches `%`, `_` and `!` literally.** The term wasn't
+  escaped, so searching `_` matched every row. It is now escaped with an
+  explicit `ESCAPE '!'`, which works on every driver (SQLite has no default
+  escape character, and MySQL has none under `NO_BACKSLASH_ESCAPES`).
+
 ## [3.0.0] - 2026-09-24
 
 Major version: two breaking changes, held back from 2.3.0. Shipped in #37.

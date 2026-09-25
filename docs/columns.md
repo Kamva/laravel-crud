@@ -90,7 +90,8 @@ The list view supports sorting and searching by clicking column headers.
 The DB column is taken from the `$value` string: `'name'` and
 `'status.badge'` use `name` and `status`. When the model resolves that name
 itself (an accessor, an appended attribute, or a method such as a relation),
-it is only used if it is also a real column of the table. The table's
+or names a `skip()`ped form field (`'password_confirmation.field'`), it is
+only used if it is also a real column of the table. The table's
 columns are listed once per table per app instance. On MongoDB, which has no
 fixed columns, the name is used as is.
 
@@ -100,8 +101,11 @@ sorting by one orders by the primary key:
 - Closure columns
 - relation columns (`'category.title'`, or a column type on a relation)
 - accessor and appended attributes (`'full_name'`)
+- `'x.field'` columns whose form field is `skip()`ped and has no column
 
 The list view receives their indexes as `$unsortableColumns`, to turn off
 sorting on those headers (see the README's list view example). To make such
 a column sortable, point it at a real column: `'category_id.field'` shows the
 field's option label and sorts by `category_id`.
+
+The search term matches literally: `%` and `_` in it aren't wildcards (on SQL Server, `[` still is).
