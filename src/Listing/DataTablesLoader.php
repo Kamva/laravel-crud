@@ -112,7 +112,8 @@ final class DataTablesLoader
 
         // Postgres' LIKE is case-sensitive; ILIKE matches the way LIKE does
         // under MySQL's default collations and SQLite.
-        $operator   = $rows->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+        $pgsql      = $rows->getConnection()->getDriverName() === 'pgsql';
+        $operator   = $pgsql ? 'ilike' : 'like';
         $model      = $rows->getModel();
 
         // Columns with no database column of their own (Closure, relation
@@ -130,9 +131,17 @@ final class DataTablesLoader
             return $rows->whereKey([]);
         }
 
-        return $rows->where(function ($q) use ($text, $operator, $colNames) {
+        // Escape wildcards so `_` and `%` match literally. `!` needs no
+        // escaping inside a string literal, unlike a backslash (MySQL's
+        // NO_BACKSLASH_ESCAPES), and SQLite has no default escape character,
+        // so it is given explicitly on every driver. Postgres casts to text,
+        // as Laravel's grammar does for a LIKE, so non-text columns match.
+        $like       = "%" . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $text) . "%";
+        $cast       = $pgsql ? '::text' : '';
+
+        return $rows->where(function ($q) use ($like, $operator, $colNames, $cast) {
             foreach ($colNames as $colName) {
-                $q->orWhere($colName, $operator, "%" . $text . "%");
+                $q->orWhereRaw($q->getGrammar()->wrap($colName) . "{$cast} {$operator} ? escape '!'", [$like]);
             }
         });
     }

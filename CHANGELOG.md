@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unknown-column error on Postgres and MySQL. It is now checked against the
   table's columns, like accessors and relations. Fields that aren't
   `skip()`ped run the same queries as before.
+- **List search matches `%`, `_` and `!` literally.** The term wasn't
+  escaped, so searching `_` matched every row. It is now escaped with an
+  explicit `ESCAPE '!'`, which works on every driver (SQLite has no default
+  escape character, and MySQL has none under `NO_BACKSLASH_ESCAPES`).
 
 ## [3.0.0] - 2026-09-24
 

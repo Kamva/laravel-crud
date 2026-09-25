@@ -310,6 +310,26 @@ class DataTablesColumnSqlTest extends TestCase
         )));
     }
 
+    public function test_search_term_wildcards_match_literally(): void
+    {
+        foreach (['snake_case', 'snakeXcase', 'fifty%', 'fiftyX', 'back\\slash', 'backslash', 'bang!', 'bang'] as $name) {
+            DcsWidget::create(['name' => $name, 'owner_id' => 1]);
+        }
+
+        foreach (['_' => 'snake_case', '%' => 'fifty%', '\\' => 'back\\slash', '!' => 'bang!', 'e_c' => 'snake_case'] as $term => $match) {
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+
+            $response = $this->loaderRequest(['search' => ['value' => $term]], function (CRUDController $c) {
+                $c->addColumn('Name', 'name');
+            });
+
+            $this->assertSame([$match], array_column($response['data'], 0));
+            $this->assertContains('%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term) . '%', array_merge(...array_column(DB::getQueryLog(), 'bindings')));
+            $this->assertMatchesRegularExpression("/[\"`]name[\"`](::text)? i?like \\? escape '!'/", implode("\n", array_column(DB::getQueryLog(), 'query')));
+        }
+    }
+
     private function loaderRequest(array $params, ?\Closure $columns = null): array
     {
         $controller = new class($this->app->make(Form::class)) extends CRUDController {

@@ -107,3 +107,5 @@ The list view receives their indexes as `$unsortableColumns`, to turn off
 sorting on those headers (see the README's list view example). To make such
 a column sortable, point it at a real column: `'category_id.field'` shows the
 field's option label and sorts by `category_id`.
+
+The search term matches literally: `%` and `_` in it aren't wildcards.
