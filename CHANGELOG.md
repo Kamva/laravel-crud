@@ -22,14 +22,14 @@ in #44.
     `CRUDExport` uses it. Earlier 1.30.x have several high and critical
     advisories (SSRF/RCE in `IOFactory::load`, memory and CPU exhaustion,
     XSS).
-  - `laravel/framework` `^10.48.29|^11.44.1|^12.61.1` (CVE-2025-27515 file
-    validation bypass; signed URL path confusion and CRLF injection in the
-    email rule on 12.x).
+  - `laravel/framework` `^10.48.29|^11.44.1|^12.69.0` (CVE-2025-27515 file
+    validation bypass; on 12.x also signed URL path confusion, CRLF injection
+    in the email rule and CVE-2026-102279, XSS on the debug page).
   - Dev: `phpunit/phpunit` `^10.5.62|^11.5.50|^12.5.22` (CVE-2026-24765).
 
   Laravel 10 and 11 still carry CVE-2026-48019 (CRLF injection in the
-  default `email` rule), which has no fix on those lines; apps that can
-  should run Laravel 12.
+  default `email` rule) and the signed URL path confusion, which have no fix
+  on those lines; apps that can should run Laravel 12.
 
 ## [3.0.1] - 2026-09-25
 
