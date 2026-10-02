@@ -206,7 +206,7 @@ final class RelationPreloader
             || array_key_exists($name, $model->getAttributes())
             || array_key_exists($name, $model->getCasts())
             || $model->hasGetMutator($name)
-            || (method_exists($model, 'hasAttributeMutator') && $model->hasAttributeMutator($name))
+            || $model->hasAttributeMutator($name)
             || method_exists(Model::class, $name)
             || ! method_exists($model, $name);
     }

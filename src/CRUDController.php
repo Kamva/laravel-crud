@@ -712,8 +712,7 @@ class CRUDController extends Controller
             $like    = '%' . $escaped . '%';
 
             // Resolve the query grammar from the connection (works whether
-            // $rows is an Eloquent or base query builder, including Laravel 6
-            // where getGrammar() isn't in Eloquent's passthru list). Wrapping
+            // $rows is an Eloquent or base query builder). Wrapping
             // each identifier quotes/escapes it per driver, keeping the value
             // parameter-bound AND neutralising identifier injection if a caller
             // ever passes a non-trusted column name. LOWER() is broadly

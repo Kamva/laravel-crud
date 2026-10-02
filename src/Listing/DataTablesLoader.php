@@ -263,7 +263,7 @@ final class DataTablesLoader
     private function isAccessor(Model $model, string $name): bool
     {
         return $model->hasGetMutator($name)
-            || (method_exists($model, 'hasAttributeMutator') && $model->hasAttributeMutator($name))
-            || (method_exists($model, 'getAppends') && in_array($name, $model->getAppends(), true));
+            || $model->hasAttributeMutator($name)
+            || in_array($name, $model->getAppends(), true);
     }
 }
