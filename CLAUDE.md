@@ -25,9 +25,9 @@ care of listing, creating, editing, deleting, exporting, and importing records.
 
 | Layer | Technology |
 |---|---|
-| Language | PHP >= 8.1 |
-| Framework | Laravel 10, 11, 12 |
-| Excel I/O | `maatwebsite/excel` ^3.1 |
+| Language | PHP >= 8.2 |
+| Framework | Laravel 12 (>= 12.69.0) |
+| Excel I/O | `maatwebsite/excel` ^3.1.70 |
 | Front-end (views) | Blade stubs (consumers implement them) |
 | Date formatting | Jalali/Persian calendar (`jdate()` helper assumed in host app) |
 
@@ -47,8 +47,9 @@ both. Query code must work on SQLite, MySQL and Postgres: SQLite reads an
 unknown double-quoted column as a string, so a bad column name only fails on
 the other two.
 
-PHP 8.1 is the minimum (`Kanban/` and `Timeline/` use `readonly` promoted
-properties), so 8.1 syntax is fine anywhere in `src/`.
+PHP 8.2 is the minimum (Laravel 12 requires it), so 8.2 syntax is fine
+anywhere in `src/`. Laravel 10 and 11 are not supported since 4.0; apps on
+them stay on 3.x.
 
 ---
 

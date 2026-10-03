@@ -294,9 +294,9 @@ Then run `composer dump-autoload`.
 
 | Requirement | Version |
 |---|---|
-| PHP | >= 8.1 (8.2 for Laravel 11 and 12) |
-| Laravel | 10, 11 or 12 |
-| maatwebsite/excel | ^3.1 |
+| PHP | 8.2 to 8.4 |
+| Laravel | 12 (12.69.0 or later) |
+| maatwebsite/excel | ^3.1.70 |
 
 ---
 
@@ -327,6 +327,7 @@ and older versions do not get them.
 - **If you install from the untagged `dev-main` branch, or pin a commit from
   before `1.0.0`, upgrade to `1.0.0` or later.** It contains important security
   fixes.
+- 4.0 requires Laravel 12. Apps on Laravel 10 or 11 stay on 3.x (`^3.0.2`).
 - Read [CHANGELOG.md](CHANGELOG.md) before every upgrade. Each release lists
   its breaking changes and what to change in your app.
 - To report a security problem, contact the maintainers privately instead of
@@ -935,8 +936,8 @@ Two soft-behaviour changes worth flagging:
 composer test
 ```
 
-151 unit tests covering these features and their non-breaking
-contracts. Run via orchestra/testbench against PHP 8.1+, on in-memory SQLite
+Unit tests cover these features and their non-breaking
+contracts. Run via orchestra/testbench against PHP 8.2+, on in-memory SQLite
 by default. To run them on Postgres, point them at a throwaway database whose
 name contains `test` (every test drops its public schema):
 

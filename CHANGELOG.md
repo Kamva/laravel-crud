@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-10-02
+
+Major version: Laravel 10 and 11 are dropped. No other changes; apps on
+Laravel 12 upgrade without code changes.
+
+### ⚠️ Breaking changes
+
+- **Laravel 12.69.0 or later and PHP 8.2 or later are required.** Laravel 10
+  and 11 still carry CVE-2026-48019 (CRLF injection in the default `email`
+  validation rule) and the signed URL path confusion, and neither line gets a
+  fix. Apps on Laravel 10 or 11 stay on 3.x (`^3.0.2`).
+
+### Internal
+
+- CI tests PHP 8.2 and 8.4, each on SQLite and Postgres 16. PHP 8.5 is not
+  tested yet: `phpoffice/phpspreadsheet` 1.x doesn't support it.
+- Dev dependencies: orchestra/testbench `^10`, PHPUnit `^11.5.50|^12.5.22`.
+- Removed `method_exists()` guards for `Model::hasAttributeMutator()` and
+  `Model::getAppends()`, and the tests' Laravel 10 and 11 workarounds.
+
 ## [3.0.2] - 2026-10-02
 
 Security release: minimum dependency versions raised. No code changes. Shipped
@@ -381,7 +401,8 @@ review them before upgrading.
   hydrating every matching row into models on each draw — preserving
   `distinct()` / `groupBy()` semantics without the memory/latency cost.
 
-[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v3.0.2...HEAD
+[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/Kamva/laravel-crud/compare/v3.0.2...v4.0.0
 [3.0.2]: https://github.com/Kamva/laravel-crud/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/Kamva/laravel-crud/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/Kamva/laravel-crud/compare/v2.3.0...v3.0.0
