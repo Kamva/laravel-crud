@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-14
+
 ### Added
 
 - Laravel 13 support (`laravel/framework ^12.69.0|^13.0`, Testbench `^10.0|^11.0`). The 179 tests pass on Laravel 13.42. CI covers both: PHP 8.2 resolves Laravel 12, PHP 8.4 resolves Laravel 13.
@@ -405,7 +407,8 @@ review them before upgrading.
   hydrating every matching row into models on each draw — preserving
   `distinct()` / `groupBy()` semantics without the memory/latency cost.
 
-[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/Kamva/laravel-crud/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/Kamva/laravel-crud/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/Kamva/laravel-crud/compare/v3.0.2...v4.0.0
 [3.0.2]: https://github.com/Kamva/laravel-crud/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/Kamva/laravel-crud/compare/v3.0.0...v3.0.1
