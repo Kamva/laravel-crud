@@ -327,7 +327,7 @@ and older versions do not get them.
 - **If you install from the untagged `dev-main` branch, or pin a commit from
   before `1.0.0`, upgrade to `1.0.0` or later.** It contains important security
   fixes.
-- 4.0 requires Laravel 12. Apps on Laravel 10 or 11 stay on 3.x (`^3.0.2`).
+- 4.0 requires Laravel 12. 4.1 adds Laravel 13 (PHP 8.3+). Apps on Laravel 10 or 11 stay on 3.x (`^3.0.2`).
 - Read [CHANGELOG.md](CHANGELOG.md) before every upgrade. Each release lists
   its breaking changes and what to change in your app.
 - To report a security problem, contact the maintainers privately instead of

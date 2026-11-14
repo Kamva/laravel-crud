@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Laravel 13 support (`laravel/framework ^12.69.0|^13.0`, Testbench `^10.0|^11.0`). The 179 tests pass on Laravel 13.42. CI covers both: PHP 8.2 resolves Laravel 12, PHP 8.4 resolves Laravel 13.
+
 ## [4.0.0] - 2026-10-02
 
 Major version: Laravel 10 and 11 are dropped. No other changes; apps on
