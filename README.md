@@ -405,7 +405,7 @@ After publishing, edit `resources/views/vendor/kamva-crud/list.blade.php` and
 | `$stats` | array | Summary numbers: `label`, `value`, `icon`, `color`, `link` (see [docs/stats.md](docs/stats.md)) |
 | `$rowCounter` | bool | Render the leading `#` column (`false` after `disableRowCounter()`) |
 | `$createButton` | bool | Render the create button (`false` after `hideCreateButton()`) |
-| `$unsortableColumns` | int[] | DataTables indexes (row counter included) of columns with no database column of their own: Closure, relation (`'owner.name'`) and accessor columns. Pass them to `columnDefs` as `orderable: false`; sorting by one orders by the primary key |
+| `$unsortableColumns` | int[] | DataTables indexes (row counter included) of columns with no database column of their own: Closure, relation (`'owner.name'`) and accessor columns. Pass them to `columnDefs` as `orderable: false`; sorting by one orders by the primary key, unless the column has `sortBy()` |
 
 **create / edit / show view**
 
@@ -449,8 +449,9 @@ rest go into a dropdown. Its markup comes from the `kamva-crud::actions` view
 
 > **Closure, relation and accessor columns and search/sort.** These columns
 > have no database column of their own, so the global search skips them and
-> sorting by one orders by the primary key. Pass `$unsortableColumns` to
-> DataTables' `columnDefs` (`orderable: false`) so their headers don't offer
+> sorting by one orders by the primary key. Give a column `->sortBy($sqlOrClosure)`
+> to make it sortable, and pass `$unsortableColumns` to
+> DataTables' `columnDefs` (`orderable: false`) so the remaining headers don't offer
 > sorting. See [docs/columns.md](docs/columns.md#db-column-for-sorting--searching).
 
 ---

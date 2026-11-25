@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-11-25
+
+### Added
+
+- `ColumnContainer::sortBy(string|Closure $by)`: makes a column sortable whatever its value is, Closure columns included. A string is a column name or a SQL expression (for example a correlated subquery); a Closure is `fn (Builder $query, string $dir) => ...`. Columns with `sortBy()` are left out of `$unsortableColumns`.
+
+### Changed
+
+- The order the user picks in the list now comes before the order a filter set; the filter's order stays as the tie-breaker. Before, a filter's `orderBy()` made header sorting a no-op. When the request names no valid column, a filter's order is kept and `created_at desc` is added only if there is none.
+
 ## [4.1.0] - 2026-11-14
 
 ### Added

@@ -164,30 +164,68 @@ final class DataTablesLoader
         $offset = $this->rowCounter ? 1 : 0;
         $index  = (int) $by - $offset;
 
+        // No valid column requested: keep the order a filter set, and fall
+        // back to newest first only when there is none.
         if ($index < 0 || $index >= $this->columns->count()) {
-            return $rows->orderBy("created_at", "desc");
+            return empty($rows->getQuery()->orders)
+                ? $rows->orderBy("created_at", "desc")
+                : $rows;
         }
 
-        // A column with no database column of its own (Closure, relation or
-        // accessor value) orders by the primary key: a stable order on every
-        // driver. Qualified, so a query with joins isn't ambiguous.
-        $colName = $this->dbColumn($this->columns->at($index), $rows->getModel())
-            ?? $rows->getModel()->getQualifiedKeyName();
+        $col = $this->columns->at($index);
 
         // $dir is untrusted too: Builder::orderBy() throws on anything but
         // asc/desc, so fall back to the default direction instead of a 500.
         $dir = is_string($dir) && strtolower($dir) === 'asc' ? 'asc' : 'desc';
 
-        if (!empty($colName)) {
-            return $rows->orderBy($colName, $dir);
+        $sortBy = $col->getSortBy();
+        $dbCol  = $this->dbColumn($col, $rows->getModel());
+
+        // A column with no database column of its own (Closure, relation or
+        // accessor value) orders by the primary key: a stable order on every
+        // driver. Qualified, so a query with joins isn't ambiguous. It can't
+        // be picked in the list view, so it only breaks ties after the
+        // filter's order.
+        if ($sortBy === null && $dbCol === null) {
+            return $rows->orderBy($rows->getModel()->getQualifiedKeyName(), $dir);
         }
+
+        // The user's pick comes first; what the filters ordered by stays as
+        // the tie-breaker.
+        $base           = $rows->getQuery();
+        $orders         = $base->orders ?? [];
+        $orderBindings  = $base->getRawBindings()['order'];
+        $unionOrders    = $base->unionOrders ?? [];
+        $unionBindings  = $base->getRawBindings()['unionOrder'];
+        $rows->reorder();
+
+        if ($sortBy instanceof Closure) {
+            $sortBy($rows, $dir);
+        } elseif (is_string($sortBy) && !preg_match('/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/', $sortBy)) {
+            $rows->orderByRaw("{$sortBy} {$dir}");
+        } else {
+            $rows->orderBy($sortBy ?? $dbCol, $dir);
+        }
+
+        // MongoDB keys `orders` by column: the user's direction wins there.
+        foreach ($orders as $key => $order) {
+            if (is_string($key)) {
+                $base->orders[$key] ??= $order;
+            } else {
+                $base->orders[] = $order;
+            }
+        }
+
+        $base->unionOrders = array_merge($base->unionOrders ?? [], $unionOrders);
+        $base->setBindings(array_merge($base->getRawBindings()['order'], $orderBindings), 'order');
+        $base->setBindings(array_merge($base->getRawBindings()['unionOrder'], $unionBindings), 'unionOrder');
 
         return $rows;
     }
 
     /**
      * DataTables indexes of the data columns that can't be sorted (they have
-     * no database column of their own, or setOrderBy() fixes the order), for
+     * no database column of their own and no sortBy(), or setOrderBy() fixes the order), for
      * the list view's
      * `columnDefs: [{orderable: false, targets: …}]`. Sorting by one orders
      * by the primary key, which the header arrow would misrepresent.
@@ -201,7 +239,7 @@ final class DataTablesLoader
 
         foreach ($this->columns as $index => $col) {
             // setOrderBy() fixes the order: no header changes it.
-            if (!empty($this->fixedOrderCol) || empty($this->dbColumn($col, $model))) {
+            if (!empty($this->fixedOrderCol) || ($col->getSortBy() === null && empty($this->dbColumn($col, $model)))) {
                 $out[] = $index + $offset;
             }
         }
