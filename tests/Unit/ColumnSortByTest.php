@@ -94,6 +94,16 @@ class ColumnSortByTest extends TestCase
         $this->assertSame(['d', 'c', 'b', 'a'], $names);
     }
 
+    public function test_union_orders_of_a_filter_are_kept_as_tie_breaker(): void
+    {
+        $names = $this->names(['by_union' => 1, 'order' => [['column' => 1, 'dir' => 'asc']]], function ($c) {
+            $c->addHiddenFilter('by_union', fn ($request, $q) => $q->union(SbSub::query()->where('id', 0)->toBase())->orderBy('expires', 'asc'));
+            $c->addColumn('Plan', fn ($r) => $r->plan_id)->sortBy('plan_id');
+        });
+
+        $this->assertSame(['a', 'd', 'b', 'c'], $names);
+    }
+
     public function test_filter_order_is_kept_as_tie_breaker_with_its_bindings(): void
     {
         $names = $this->names(['by_expires' => 1, 'order' => [['column' => 1, 'dir' => 'asc']]], function ($c) {

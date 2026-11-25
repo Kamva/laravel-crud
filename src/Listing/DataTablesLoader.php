@@ -192,9 +192,11 @@ final class DataTablesLoader
 
         // The user's pick comes first; what the filters ordered by stays as
         // the tie-breaker.
-        $base       = $rows->getQuery();
-        $previous   = $base->orders ?? [];
-        $bindings   = $base->getRawBindings()['order'];
+        $base           = $rows->getQuery();
+        $orders         = $base->orders ?? [];
+        $orderBindings  = $base->getRawBindings()['order'];
+        $unionOrders    = $base->unionOrders ?? [];
+        $unionBindings  = $base->getRawBindings()['unionOrder'];
         $rows->reorder();
 
         if ($sortBy instanceof Closure) {
@@ -205,8 +207,18 @@ final class DataTablesLoader
             $rows->orderBy($sortBy ?? $dbCol, $dir);
         }
 
-        $base->orders           = array_merge($base->orders ?? [], $previous);
-        $base->bindings['order'] = array_merge($base->bindings['order'], $bindings);
+        // MongoDB keys `orders` by column: the user's direction wins there.
+        foreach ($orders as $key => $order) {
+            if (is_string($key)) {
+                $base->orders[$key] ??= $order;
+            } else {
+                $base->orders[] = $order;
+            }
+        }
+
+        $base->unionOrders = array_merge($base->unionOrders ?? [], $unionOrders);
+        $base->setBindings(array_merge($base->getRawBindings()['order'], $orderBindings), 'order');
+        $base->setBindings(array_merge($base->getRawBindings()['unionOrder'], $unionBindings), 'unionOrder');
 
         return $rows;
     }
