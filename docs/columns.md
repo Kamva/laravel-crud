@@ -109,4 +109,23 @@ sorting on those headers (see the README's list view example). To make such
 a column sortable, point it at a real column: `'category_id.field'` shows the
 field's option label and sorts by `category_id`.
 
+Or give the column its own sort with `sortBy()`. A string is a column name or
+a SQL expression, used as is, so write it yourself and never build it from
+request input; a Closure gets the query and the direction (`asc` or `desc`).
+A column with `sortBy()` is not in `$unsortableColumns`:
+
+```php
+$this->addColumn('Plan credit', fn ($sub) => $sub->plan?->credit)
+    ->sortBy('(select credit from plans where plans.id = subscriptions.plan_id)');
+
+$this->addColumn('Owner', 'owner.name')
+    ->sortBy(fn ($query, $dir) => $query->orderBy(
+        User::select('name')->whereColumn('users.id', 'posts.user_id'),
+        $dir,
+    ));
+```
+
+The order the user picks comes before an order a filter set; the filter's
+order stays as the tie-breaker.
+
 The search term matches literally: `%` and `_` in it aren't wildcards (on SQL Server, `[` still is).

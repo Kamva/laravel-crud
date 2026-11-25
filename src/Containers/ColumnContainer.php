@@ -8,6 +8,7 @@ class ColumnContainer
 {
     private $name;
     public $value;
+    private $sortBy;
 
     public function __construct($name, $value)
     {
@@ -18,6 +19,28 @@ class ColumnContainer
     public function getName()
     {
         return $this->name;
+    }
+
+    /**
+     * Makes the column sortable in the list, whatever its value is.
+     *
+     * A string is a column name or a SQL expression (`'lower(name)'`,
+     * `'(select credit from plans where plans.id = subscriptions.plan_id)'`).
+     * It is written into the query as is, so pass only developer-written SQL,
+     * never request input. A Closure takes over the ordering:
+     * `fn (Builder $query, string $dir) => $query->orderBy(...)`, $dir being
+     * `asc` or `desc`.
+     */
+    public function sortBy(string|\Closure $by): static
+    {
+        $this->sortBy = $by;
+
+        return $this;
+    }
+
+    public function getSortBy(): string|\Closure|null
+    {
+        return $this->sortBy;
     }
 
     /**
