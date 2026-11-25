@@ -84,6 +84,23 @@ class ColumnSortByTest extends TestCase
         $this->assertSame('desc', $seen);
     }
 
+    public function test_primary_key_is_the_final_tie_breaker_in_both_directions(): void
+    {
+        $queries = [];
+        \DB::listen(function ($q) use (&$queries) {
+            $queries[] = $q->sql;
+        });
+
+        foreach (['asc', 'desc'] as $dir) {
+            $this->names(['by_name' => 1, 'order' => [['column' => 1, 'dir' => $dir]]], function ($c) {
+                $c->addHiddenFilter('by_name', fn ($request, $q) => $q->orderBy('name', 'desc'));
+                $c->addColumn('Expires', 'expires');
+            });
+        }
+
+        $this->assertCount(2, array_filter($queries, fn ($sql) => preg_match('/order by .*"expires" (asc|desc), "name" desc, "sb_subs"\."id" asc/i', $sql) && str_contains($sql, 'limit')));
+    }
+
     public function test_user_order_comes_before_a_filters_order(): void
     {
         $names = $this->names(['by_expires' => 1, 'order' => [['column' => 1, 'dir' => 'desc']]], function ($c) {

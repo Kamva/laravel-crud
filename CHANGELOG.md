@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.1] - 2026-11-25
+
+### Fixed
+
+- A list sorted by a column now ends the order with the model's primary key. Rows with equal values in the picked column came back in no fixed order, so pages could repeat or skip rows.
+
 ## [4.2.0] - 2026-11-25
 
 ### Added

@@ -220,6 +220,20 @@ final class DataTablesLoader
         $base->setBindings(array_merge($base->getRawBindings()['order'], $orderBindings), 'order');
         $base->setBindings(array_merge($base->getRawBindings()['unionOrder'], $unionBindings), 'unionOrder');
 
+        // Last, a unique key: equal values in the picked column otherwise
+        // come back in no fixed order, and pages overlap or skip rows.
+        // A union orders by result columns, which can't be table-qualified.
+        $key = empty($base->unions)
+            ? $rows->getModel()->getQualifiedKeyName()
+            : $rows->getModel()->getKeyName();
+        $ordersByKey = array_filter(
+            $base->orders ?? [],
+            fn ($order) => is_array($order) && ($order['column'] ?? null) === $key,
+        );
+        if (!$ordersByKey && !isset($base->orders[$key])) {
+            $rows->orderBy($key, 'asc');
+        }
+
         return $rows;
     }
 
